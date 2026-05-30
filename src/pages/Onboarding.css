@@ -1,0 +1,241 @@
+.onboarding {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 32px 24px 40px;
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.onboarding__progress {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 40px;
+}
+
+.onboarding__progress-dot {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background 0.3s, transform 0.3s;
+}
+
+.onboarding__progress-dot--active {
+  background: var(--accent);
+}
+
+.onboarding__progress-dot--complete {
+  background: var(--accent);
+  opacity: 0.5;
+}
+
+.onboarding__step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  animation: onboarding-fade-in 0.35s ease;
+}
+
+.onboarding__step--baseline {
+  justify-content: space-between;
+}
+
+.onboarding__header {
+  margin-bottom: 32px;
+}
+
+.onboarding__title {
+  margin: 0 0 12px;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+  color: var(--text-h);
+}
+
+.onboarding__subtitle {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.onboarding__grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.onboarding__grid--2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.onboarding-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 12px;
+  min-height: 120px;
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg);
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    background 0.2s,
+    box-shadow 0.2s,
+    transform 0.15s;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.onboarding-card:active {
+  transform: scale(0.97);
+}
+
+.onboarding-card--selected {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  box-shadow: 0 4px 20px rgba(108, 99, 255, 0.2);
+}
+
+.onboarding-card__emoji {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.onboarding-card__label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-h);
+  text-align: center;
+  line-height: 1.25;
+}
+
+.onboarding__note {
+  margin: 0 0 24px;
+  font-size: 14px;
+  text-align: center;
+  color: var(--text);
+  font-style: italic;
+}
+
+.onboarding__wearable-banner {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(108, 99, 255, 0.12) 0%, rgba(99, 102, 241, 0.18) 100%);
+  border: 1px solid rgba(108, 99, 255, 0.25);
+  text-align: left;
+}
+
+.onboarding__wearable-banner-icon {
+  flex-shrink: 0;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.onboarding__wearable-banner-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-h);
+}
+
+.onboarding__wearable-banner-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.onboarding__bullets {
+  list-style: none;
+  margin: 0 0 40px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.onboarding__bullet {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--text-h);
+  font-weight: 500;
+}
+
+.onboarding__bullet-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.onboarding__btn {
+  margin-top: auto;
+  width: 100%;
+  padding: 16px 24px;
+  border: none;
+  border-radius: 14px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    transform 0.15s,
+    box-shadow 0.2s;
+  box-shadow: 0 4px 16px rgba(108, 99, 255, 0.35);
+  animation: onboarding-slide-up 0.3s ease;
+}
+
+.onboarding__btn:active {
+  transform: scale(0.98);
+}
+
+.onboarding__btn--large {
+  padding: 18px 24px;
+  font-size: 18px;
+}
+
+@keyframes onboarding-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes onboarding-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
