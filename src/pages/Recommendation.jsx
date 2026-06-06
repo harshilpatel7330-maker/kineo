@@ -1,137 +1,153 @@
-import { useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { mapRecommendation } from '../utils/recommendationMapper'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import './Recommendation.css'
 
-function formatToday() {
+const DECISION_MAP = {
+  PUSH:     { label: 'Full Training',      color: '#22C55E', emoji: '💪' },
+  MAINTAIN: { label: 'Moderate Training',  color: '#3B82F6', emoji: '🏃' },
+  MODIFY:   { label: 'Deload Session',     color: '#F59E0B', emoji: '🔄' },
+  RECOVER:  { label: 'Recovery Day',       color: '#EF4444', emoji: '😴' },
+}
+
+function formatDate() {
   return new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
+    weekday: 'long', month: 'long', day: 'numeric'
   })
 }
 
-function calcReadiness({ sleep, stress, fatigue, soreness }) {
-  const score = ((6 - fatigue) + (6 - soreness) + sleep + (6 - stress)) / 16 * 100
-  return Math.round(score)
+function calcReadiness(checkin) {
+  if (!checkin) return null
+  const { sleep = 3, fatigue = 3, soreness = 3, stress = 3 } = checkin
+  return Math.round(((6 - fatigue) + (6 - soreness) + sleep + (6 - stress)) / 16 * 100)
 }
 
-function readinessColor(score) {
-  if (score > 70) return 'green'
-  if (score >= 40) return 'amber'
-  return 'red'
-}
-
-function loadLastResult() {
-  try {
-    const raw = localStorage.getItem('kineo_last_result')
-    if (!raw) return null
-    return JSON.parse(raw)
-  } catch {
-    return null
+function DataSourcePill({ dataSource }) {
+  if (dataSource === 'wearable') {
+    return (
+      <div className="rec__data-source green">
+        <span>⌚ Wearable data included</span>
+        <p>Your HRV and resting HR are being used for this recommendation</p>
+      </div>
+    )
   }
+  if (dataSource === 'wearable_no_baseline') {
+    return (
+      <div className="rec__data-source amber">
+        <span>⌚ Wearable data — building baseline</span>
+        <p>Keep entering your stats daily — recommendations improve after 7 days of data</p>
+      </div>
+    )
+  }
+  return (
+    <div className="rec__data-source grey">
+      <span>📱 Based on self-report</span>
+      <p>Add your resting HR and HRV tomorrow for more accurate recommendations</p>
+      <details className="rec__how-to">
+        <summary>How to find your stats</summary>
+        <ul>
+          <li>⌚ Apple Watch: Health app → Browse → Heart → Resting Heart Rate</li>
+          <li>💍 Oura: Today tab → Readiness score</li>
+          <li>⚫ WHOOP: Recovery screen → HRV</li>
+          <li>📱 No wearable: Check your phone's Health app</li>
+        </ul>
+      </details>
+    </div>
+  )
 }
 
 export default function Recommendation() {
   const navigate = useNavigate()
-  const data = useMemo(() => loadLastResult(), [])
+  const [data, setData] = useState(null)
 
-  if (!data?.result || !data?.checkin) {
+  useEffect(() => {
+    const stored = localStorage.getItem('kineo_last_result')
+    if (stored) setData(JSON.parse(stored))
+  }, [])
+
+  if (!data) {
     return (
-      <div className="recommendation recommendation--empty">
-        <p className="recommendation__empty-text">No check-in found</p>
-        <Link to="/checkin" className="recommendation__btn recommendation__btn--primary">
-          Start a Check In
-        </Link>
+      <div className="rec rec--empty">
+        <p>No check-in found</p>
+        <button onClick={() => navigate('/checkin')} className="rec__btn-primary">
+          Check In Now
+        </button>
       </div>
     )
   }
 
   const { result, checkin, signals } = data
-  const mapped = mapRecommendation(result.decision)
+  const decision = DECISION_MAP[result.decision] ?? DECISION_MAP.MAINTAIN
   const readiness = calcReadiness(checkin)
-  const readinessClass = readinessColor(readiness)
-  const hasWearableData = signals?.hrvVsBaselinePct != null
-
-  function handleWearableLink() {
-    alert('Wearable sync coming soon!')
-  }
+  const readinessColor = readiness > 70 ? '#22C55E' : readiness > 40 ? '#F59E0B' : '#EF4444'
+  const dataSource = signals?.dataSource ?? 'self_report'
 
   return (
-    <div className="recommendation">
-      <header className="recommendation__header">
-        <p className="recommendation__eyebrow">Today&apos;s Recommendation</p>
-        <p className="recommendation__date">{formatToday()}</p>
-      </header>
+    <div className="rec">
+      <div className="rec__header">
+        <p className="rec__header-label">Today's Recommendation</p>
+        <p className="rec__date">{formatDate()}</p>
+      </div>
 
-      <div
-        className="recommendation__decision"
-        style={{ backgroundColor: mapped.bgColor }}
-      >
-        <span className="recommendation__decision-emoji" aria-hidden="true">
-          {mapped.emoji}
-        </span>
-        <h1 className="recommendation__decision-label">{mapped.label}</h1>
-        <span className="recommendation__confidence">{result.confidence}</span>
-        {hasWearableData ? (
-          <span className="recommendation__data-pill recommendation__data-pill--wearable">
-            ⌚ Wearable data included
-          </span>
-        ) : (
-          <div className="recommendation__data-quality">
-            <span className="recommendation__data-pill recommendation__data-pill--self">
-              📱 Based on self-report
-            </span>
-            <button
-              type="button"
-              className="recommendation__data-link"
-              onClick={handleWearableLink}
-            >
-              Connect a wearable for more accurate recommendations
-            </button>
+      {/* Cumulative load warning */}
+      {result.warnings?.length > 0 && (
+        <div className="rec__warning-banner">
+          ⚠️ {result.warnings[0]}
+          <p className="rec__warning-note">
+            Research shows this pattern significantly increases injury risk. 
+            A deload week now prevents weeks of forced rest later.
+          </p>
+        </div>
+      )}
+
+      {/* Decision card */}
+      <div className="rec__decision-card" style={{ background: decision.color }}>
+        <div className="rec__decision-emoji">{decision.emoji}</div>
+        <div className="rec__decision-label">{decision.label}</div>
+        <div className="rec__confidence-badge">{result.confidence} confidence</div>
+      </div>
+
+      {/* Data source */}
+      <DataSourcePill dataSource={dataSource} />
+
+      {/* Why today */}
+      {result.reasons?.length > 0 && (
+        <div className="rec__card">
+          <h3 className="rec__card-title">Why today?</h3>
+          <ul className="rec__reasons">
+            {result.reasons.map((r, i) => <li key={i}>{r}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {/* Action */}
+      <div className="rec__card">
+        <h3 className="rec__card-title">What to do</h3>
+        <p className="rec__action">{result.action}</p>
+        {result.watchFor && (
+          <div className="rec__watch-for">
+            <span className="rec__watch-label">WATCH FOR</span>
+            <p>{result.watchFor}</p>
           </div>
         )}
       </div>
 
-      <section className="recommendation__card">
-        <h2 className="recommendation__card-title">Why today?</h2>
-        <ul className="recommendation__list">
-          {result.reasons.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="recommendation__card">
-        <h2 className="recommendation__card-title">What to do</h2>
-        <p className="recommendation__action">{result.action}</p>
-        <div className="recommendation__watch">
-          <span className="recommendation__watch-label">Watch for</span>
-          <p className="recommendation__watch-text">{result.watchFor}</p>
+      {/* Readiness score */}
+      {readiness !== null && (
+        <div className="rec__readiness" style={{ borderColor: readinessColor }}>
+          <div className="rec__readiness-score" style={{ color: readinessColor }}>
+            {readiness}%
+          </div>
+          <div className="rec__readiness-label">Readiness Score</div>
         </div>
-      </section>
+      )}
 
-      <section className={`recommendation__readiness recommendation__readiness--${readinessClass}`}>
-        <span className="recommendation__readiness-value">{readiness}%</span>
-        <span className="recommendation__readiness-label">Readiness Score</span>
-      </section>
-
-      <div className="recommendation__actions">
-        <button
-          type="button"
-          className="recommendation__btn recommendation__btn--outline"
-          onClick={() => navigate('/checkin')}
-        >
-          Check in again
-        </button>
-        <button
-          type="button"
-          className="recommendation__btn recommendation__btn--primary"
-          onClick={() => navigate('/dashboard')}
-        >
-          Go to Dashboard
-        </button>
-      </div>
+      {/* Buttons */}
+      <button className="rec__btn-outline" onClick={() => navigate('/checkin')}>
+        Check in again
+      </button>
+      <button className="rec__btn-primary" onClick={() => navigate('/dashboard')}>
+        Go to Dashboard
+      </button>
     </div>
   )
 }

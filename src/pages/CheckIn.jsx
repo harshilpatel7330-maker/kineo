@@ -3,304 +3,315 @@ import { useNavigate } from 'react-router-dom'
 import { evaluate } from '../athleteiq-engine'
 import { supabase } from '../supabaseClient'
 import { mapToSignals } from '../utils/signalMapper'
+import { calculateBaseline, fetchCumulativeLoad } from '../utils/baselineCalculator'
 import './CheckIn.css'
 
 const ATHLETE_ID = '00000000-0000-0000-0000-000000000001'
 
 const SLIDERS = [
-  {
-    key: 'sleep',
-    label: 'Sleep Quality',
-    emojis: ['😴', '😕', '😐', '🙂', '😁'],
-  },
-  {
-    key: 'stress',
-    label: 'Stress Level',
-    emojis: ['😌', '🙂', '😐', '😟', '😩'],
-  },
-  {
-    key: 'fatigue',
-    label: 'Fatigue',
-    emojis: ['⚡', '🙂', '😐', '😓', '🥴'],
-  },
-  {
-    key: 'soreness',
-    label: 'Soreness',
-    emojis: ['💪', '🙂', '😐', '😣', '🤕'],
-  },
+  { key: 'sleep', label: 'Sleep Quality', emojis: ['😴','😕','😐','🙂','😁'] },
+  { key: 'stress', label: 'Stress Level', emojis: ['😌','🙂','😐','😟','😩'] },
+  { key: 'fatigue', label: 'Fatigue', emojis: ['⚡','🙂','😐','😓','🥴'] },
+  { key: 'soreness', label: 'Soreness', emojis: ['💪','🙂','😐','😣','🤕'] },
 ]
 
-const SESSION_OPTIONS = [0, 1, 2, 3, 4, '5+']
-
+const SESSIONS = [0, 1, 2, 3, 4, 5]
 const LOAD_OPTIONS = [
   { value: 'less', label: 'Less than usual' },
   { value: 'same', label: 'About the same' },
   { value: 'more', label: 'More than usual' },
 ]
 
-function formatToday() {
+const TRAINING_TYPES = [
+  { value: 'running', label: 'Running', emoji: '🏃' },
+  { value: 'lifting', label: 'Lifting', emoji: '🏋️' },
+  { value: 'sport', label: 'Sport/Team', emoji: '⚽' },
+  { value: 'recovery', label: 'Recovery', emoji: '🧘' },
+]
+
+function formatDate() {
   return new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
+    weekday: 'long', month: 'long', day: 'numeric'
   })
 }
 
-function SliderSection({ label, value, onChange, emojis }) {
-  const pct = ((value - 1) / 4) * 100
-
-  return (
-    <div className="checkin-slider">
-      <div className="checkin-slider__header">
-        <span className="checkin-slider__label">{label}</span>
-        <span className="checkin-slider__value" aria-hidden="true">
-          {emojis[value - 1]}
-        </span>
-      </div>
-      <input
-        type="range"
-        className="checkin-slider__input"
-        min={1}
-        max={5}
-        step={1}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={{ '--slider-pct': `${pct}%` }}
-        aria-valuemin={1}
-        aria-valuemax={5}
-        aria-valuenow={value}
-        aria-label={label}
-      />
-      <div className="checkin-slider__scale" aria-hidden="true">
-        {emojis.map((emoji, i) => (
-          <span
-            key={emoji}
-            className={`checkin-slider__scale-item${value === i + 1 ? ' checkin-slider__scale-item--active' : ''}`}
-          >
-            {emoji}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
+function getWearableHint(wearable) {
+  switch (wearable) {
+    case 'apple-watch': return 'Health app → Browse → Heart → Resting Heart Rate'
+    case 'whoop': return 'Recovery screen → HRV & Resting HR'
+    case 'oura': return 'Today tab → Readiness'
+    case 'garmin': return 'Garmin Connect → Health Stats'
+    default: return 'Check your phone\'s Health app'
+  }
 }
 
 export default function CheckIn() {
   const navigate = useNavigate()
-  const [values, setValues] = useState({ sleep: 3, stress: 3, fatigue: 3, soreness: 3 })
+  const profile = JSON.parse(localStorage.getItem('kineo_profile') || '{}')
+
+  const [sliders, setSliders] = useState({ sleep: 3, stress: 3, fatigue: 3, soreness: 3 })
   const [sessionsThisWeek, setSessionsThisWeek] = useState(null)
   const [loadVsNormal, setLoadVsNormal] = useState('same')
-  const [painExpanded, setPainExpanded] = useState(true)
+  const [trainingType, setTrainingType] = useState(null)
+  const [hasPain, setHasPain] = useState(false)
   const [painScore, setPainScore] = useState(0)
   const [painTrend, setPainTrend] = useState('stable')
   const [painAltersMovement, setPainAltersMovement] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  const [restingHrBpm, setRestingHrBpm] = useState('')
+  const [hrvMs, setHrvMs] = useState('')
+  const [sleepHours, setSleepHours] = useState('')
+  const [showWearableInfo, setShowWearableInfo] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  function setSlider(key, val) {
-    setValues((prev) => ({ ...prev, [key]: val }))
-  }
-
-  function selectSessions(option) {
-    setSessionsThisWeek(option === '5+' ? 5 : option)
-  }
+  const wearableHint = getWearableHint(profile.wearable)
 
   async function handleSubmit() {
-    if (sessionsThisWeek === null) return
-
-    setSubmitting(true)
-
-    const hasPain = painScore > 0
-    const checkinData = {
-      ...values,
-      sessionsThisWeek,
-      loadVsNormal,
+    if (sessionsThisWeek === null) {
+      alert('Please select how many sessions you did this week')
+      return
     }
+    setLoading(true)
+    try {
+      const baseline = await calculateBaseline()
+      const cumulativeLoad = await fetchCumulativeLoad()
 
-    const signals = mapToSignals({
-      sleep: values.sleep,
-      stress: values.stress,
-      fatigue: values.fatigue,
-      soreness: values.soreness,
-      painScore,
-      painTrend,
-      painAltersMovement,
-      sessionsThisWeek,
-      loadVsNormal,
-    })
+      const signals = mapToSignals({
+        sleep: sliders.sleep,
+        stress: sliders.stress,
+        fatigue: sliders.fatigue,
+        soreness: sliders.soreness,
+        painScore,
+        painTrend,
+        painAltersMovement,
+        sessionsThisWeek,
+        loadVsNormal,
+        restingHrBpm: restingHrBpm ? parseFloat(restingHrBpm) : null,
+        hrvMs: hrvMs ? parseFloat(hrvMs) : null,
+        sleepHours: sleepHours ? parseFloat(sleepHours) : null,
+        baseline,
+      })
 
-    const result = evaluate(signals)
+      const result = evaluate(signals)
 
-    const { error: checkinError } = await supabase.from('checkins').insert({
-      athlete_id: ATHLETE_ID,
-      sleep_quality: values.sleep,
-      stress: values.stress,
-      fatigue: values.fatigue,
-      soreness: values.soreness,
-      has_pain: hasPain,
-    })
+      if (cumulativeLoad.hasPattern) {
+        result.warnings = result.warnings ?? []
+        result.warnings.push(
+          `Your fatigue has been elevated for ${cumulativeLoad.consecutiveHighWeeks} consecutive weeks. This pattern is associated with increased injury risk. Consider a deload week.`
+        )
+      }
 
-    if (checkinError) console.error('Failed to save check-in:', checkinError)
+      // Save check-in to Supabase
+      const { error: checkinError } = await supabase
+        .from('checkins')
+        .insert({
+          athlete_id: ATHLETE_ID,
+          sleep_quality: sliders.sleep,
+          stress: sliders.stress,
+          fatigue: sliders.fatigue,
+          soreness: sliders.soreness,
+          has_pain: hasPain,
+          resting_hr_bpm: restingHrBpm ? parseInt(restingHrBpm) : null,
+          hrv_ms: hrvMs ? parseFloat(hrvMs) : null,
+          sleep_hours: sleepHours ? parseFloat(sleepHours) : null,
+        })
+      if (checkinError) console.error('Failed to save check-in:', checkinError)
 
-    const { error: recError } = await supabase.from('recommendation_outputs').insert({
-      athlete_id: ATHLETE_ID,
-      decision: result.decision,
-      confidence: result.confidence,
-      reasons: result.reasons,
-      action: result.action,
-      watch_for: result.watchFor,
-      signals_used: { ...signals, checkin: checkinData },
-    })
+      // Save recommendation to Supabase
+      const { error: recError } = await supabase
+        .from('recommendation_outputs')
+        .insert({
+          athlete_id: ATHLETE_ID,
+          decision: result.decision,
+          confidence: result.confidence,
+          reasons: result.reasons,
+          action: result.action,
+          watch_for: result.watchFor,
+          signals_used: signals,
+          rules_fired: result.rulesFired,
+        })
+      if (recError) console.error('Failed to save recommendation:', recError)
 
-    if (recError) console.error('Failed to save recommendation:', recError)
-
-    localStorage.setItem(
-      'kineo_last_result',
-      JSON.stringify({
+      localStorage.setItem('kineo_last_result', JSON.stringify({
         result,
         signals,
-        checkin: checkinData,
+        checkin: { ...sliders, sessionsThisWeek, loadVsNormal, trainingType },
         hasPain,
-        date: new Date().toISOString().split('T')[0],
-      }),
-    )
-    navigate('/recommendation')
+        baseline,
+        cumulativeLoad,
+        date: new Date().toISOString(),
+      }))
+
+      navigate('/recommendation')
+    } catch (err) {
+      console.error('Check-in error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const canSubmit = sessionsThisWeek !== null && !submitting
-
   return (
-    <div className="checkin">
-      <header className="checkin__header">
-        <h1 className="checkin__title">How are you feeling?</h1>
-        <p className="checkin__date">{formatToday()}</p>
-        <p className="checkin__hint">Takes less than 30 seconds</p>
-      </header>
-
-      <div className="checkin__sliders">
-        {SLIDERS.map(({ key, label, emojis }) => (
-          <SliderSection
-            key={key}
-            label={label}
-            value={values[key]}
-            onChange={(val) => setSlider(key, val)}
-            emojis={emojis}
-          />
-        ))}
+    <div className="check-in">
+      <div className="check-in__header">
+        <h1 className="check-in__title">How are you feeling?</h1>
+        <p className="check-in__date">{formatDate()}</p>
+        <p className="check-in__subtitle">Takes less than 30 seconds</p>
       </div>
 
-      <section className="checkin__load">
-        <h2 className="checkin__load-heading">Training Load</h2>
-
-        <div className="checkin__field">
-          <span className="checkin__field-label">How many training sessions have you done this week?</span>
-          <div className="checkin__session-row">
-            {SESSION_OPTIONS.map((option) => {
-              const selected =
-                option === '5+'
-                  ? sessionsThisWeek === 5
-                  : sessionsThisWeek === option
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  className={`checkin__session-btn${selected ? ' checkin__session-btn--active' : ''}`}
-                  onClick={() => selectSessions(option)}
-                >
-                  {option}
-                </button>
-              )
-            })}
+      {/* Sliders */}
+      {SLIDERS.map(({ key, label, emojis }) => (
+        <div key={key} className="check-in__field">
+          <div className="check-in__label-row">
+            <span className="check-in__label">{label}</span>
+            <span className="check-in__emoji">{emojis[sliders[key] - 1]}</span>
           </div>
-        </div>
-
-        <div className="checkin__field">
-          <span className="checkin__field-label">How does this compare to your usual week?</span>
-          <div className="checkin__load-row">
-            {LOAD_OPTIONS.map(({ value, label }) => (
-              <button
-                key={value}
-                type="button"
-                className={`checkin__load-btn${loadVsNormal === value ? ' checkin__load-btn--active' : ''}`}
-                onClick={() => setLoadVsNormal(value)}
-              >
-                {label}
-              </button>
+          <input
+            type="range" min={1} max={5} value={sliders[key]}
+            onChange={e => setSliders(s => ({ ...s, [key]: parseInt(e.target.value) }))}
+            className="check-in__slider"
+          />
+          <div className="check-in__emoji-row">
+            {emojis.map((em, i) => (
+              <span key={i} className={`check-in__emoji-label ${sliders[key] === i + 1 ? 'active' : ''}`}>{em}</span>
             ))}
           </div>
         </div>
-      </section>
+      ))}
 
-      <div className="checkin__pain">
-        <button
-          type="button"
-          className="checkin__pain-toggle checkin__pain-toggle--amber"
-          onClick={() => setPainExpanded((open) => !open)}
-          aria-expanded={painExpanded}
-        >
-          <span>⚠️ Any pain or discomfort? (tap to report)</span>
-          <span className={`checkin__pain-chevron${painExpanded ? ' checkin__pain-chevron--open' : ''}`}>
-            ›
-          </span>
+      {/* Training type */}
+      <div className="check-in__field">
+        <span className="check-in__label">What did you train today?</span>
+        <div className="check-in__options">
+          {TRAINING_TYPES.map(t => (
+            <button key={t.value}
+              className={`check-in__option-btn ${trainingType === t.value ? 'selected' : ''}`}
+              onClick={() => setTrainingType(t.value)}>
+              {t.emoji} {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sessions this week */}
+      <div className="check-in__field">
+        <span className="check-in__label">Sessions this week</span>
+        <div className="check-in__number-row">
+          {SESSIONS.map(n => (
+            <button key={n}
+              className={`check-in__number-btn ${sessionsThisWeek === n ? 'selected' : ''}`}
+              onClick={() => setSessionsThisWeek(n)}>
+              {n === 5 ? '5+' : n}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Load vs normal */}
+      <div className="check-in__field">
+        <span className="check-in__label">Compared to your usual week?</span>
+        <div className="check-in__options">
+          {LOAD_OPTIONS.map(o => (
+            <button key={o.value}
+              className={`check-in__option-btn ${loadVsNormal === o.value ? 'selected' : ''}`}
+              onClick={() => setLoadVsNormal(o.value)}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Wearable stats */}
+      <div className="check-in__wearable-section">
+        <div className="check-in__wearable-header">
+          <span>📊 This morning's stats</span>
+          <span className="check-in__optional-badge">Optional</span>
+        </div>
+        <p className="check-in__wearable-subtitle">
+          Add data from your wearable for more accurate recommendations
+        </p>
+        <div className="check-in__wearable-inputs">
+          <div className="check-in__wearable-input">
+            <label>Resting Heart Rate</label>
+            <div className="check-in__input-row">
+              <input type="number" placeholder="e.g. 58"
+                value={restingHrBpm}
+                onChange={e => setRestingHrBpm(e.target.value)} />
+              <span className="check-in__unit">bpm</span>
+            </div>
+          </div>
+          <div className="check-in__wearable-input">
+            <label>HRV</label>
+            <div className="check-in__input-row">
+              <input type="number" placeholder="e.g. 45"
+                value={hrvMs}
+                onChange={e => setHrvMs(e.target.value)} />
+              <span className="check-in__unit">ms</span>
+            </div>
+          </div>
+          <div className="check-in__wearable-input">
+            <label>Sleep Duration</label>
+            <div className="check-in__input-row">
+              <input type="number" placeholder="e.g. 7.5" step="0.5"
+                value={sleepHours}
+                onChange={e => setSleepHours(e.target.value)} />
+              <span className="check-in__unit">hrs</span>
+            </div>
+          </div>
+        </div>
+        <button className="check-in__wearable-hint-btn"
+          onClick={() => setShowWearableInfo(!showWearableInfo)}>
+          {showWearableInfo ? '▲' : '▼'} Where to find these numbers
         </button>
+        {showWearableInfo && (
+          <div className="check-in__wearable-hint">
+            <p>📍 {wearableHint}</p>
+            <p style={{ marginTop: 6, fontSize: 12, color: '#888' }}>
+              HRV tip: Higher is generally better <em>for you personally</em> — 
+              compare to your own baseline, not others.
+            </p>
+          </div>
+        )}
+      </div>
 
-        {painExpanded && (
-          <div className="checkin__pain-body">
-            <label className="checkin__field">
-              <span className="checkin__field-label">Pain score</span>
-              <input
-                type="number"
-                className="checkin__number-input"
-                min={0}
-                max={10}
-                value={painScore}
-                onChange={(e) => setPainScore(Math.min(10, Math.max(0, Number(e.target.value) || 0)))}
-              />
-              <span className="checkin__field-hint">0 = none, 10 = worst</span>
-            </label>
-
-            <label className="checkin__field">
-              <span className="checkin__field-label">Pain trend</span>
-              <select
-                className="checkin__select"
-                value={painTrend}
-                onChange={(e) => setPainTrend(e.target.value)}
-              >
+      {/* Pain section */}
+      <div className={`check-in__pain-section ${hasPain ? 'open' : ''}`}>
+        <button className="check-in__pain-toggle"
+          onClick={() => setHasPain(!hasPain)}>
+          ⚠️ Any pain or discomfort? (tap to report)
+          <span>{hasPain ? '▲' : '▼'}</span>
+        </button>
+        {hasPain && (
+          <div className="check-in__pain-fields">
+            <div className="check-in__field">
+              <label className="check-in__label">Pain score (0–10)</label>
+              <input type="number" min={0} max={10} value={painScore}
+                onChange={e => setPainScore(parseInt(e.target.value))}
+                className="check-in__pain-input" />
+            </div>
+            <div className="check-in__field">
+              <label className="check-in__label">Trend</label>
+              <select value={painTrend}
+                onChange={e => setPainTrend(e.target.value)}
+                className="check-in__select">
                 <option value="improving">Improving</option>
                 <option value="stable">Stable</option>
                 <option value="worsening">Worsening</option>
               </select>
-            </label>
-
-            <div className="checkin__field">
-              <span className="checkin__field-label">Does it change how you move?</span>
-              <div className="checkin__toggle-group">
-                <button
-                  type="button"
-                  className={`checkin__toggle-btn${painAltersMovement ? ' checkin__toggle-btn--active' : ''}`}
-                  onClick={() => setPainAltersMovement(true)}
-                >
-                  Yes
-                </button>
-                <button
-                  type="button"
-                  className={`checkin__toggle-btn${!painAltersMovement ? ' checkin__toggle-btn--active' : ''}`}
-                  onClick={() => setPainAltersMovement(false)}
-                >
-                  No
-                </button>
+            </div>
+            <div className="check-in__field">
+              <label className="check-in__label">Does it change how you move?</label>
+              <div className="check-in__toggle-row">
+                <button className={`check-in__toggle-btn ${!painAltersMovement ? 'selected' : ''}`}
+                  onClick={() => setPainAltersMovement(false)}>No</button>
+                <button className={`check-in__toggle-btn ${painAltersMovement ? 'selected' : ''}`}
+                  onClick={() => setPainAltersMovement(true)}>Yes</button>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      <button
-        type="button"
-        className="checkin__submit"
-        onClick={handleSubmit}
-        disabled={!canSubmit}
-      >
-        {submitting ? 'Getting recommendation…' : 'Get My Recommendation'}
+      <button className="check-in__submit" onClick={handleSubmit} disabled={loading}>
+        {loading ? 'Analysing...' : 'Get My Recommendation'}
       </button>
     </div>
   )

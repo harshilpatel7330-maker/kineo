@@ -1,41 +1,60 @@
 export function mapToSignals({
-  sleep,
-  stress,
-  fatigue,
-  soreness,
-  painScore,
-  painTrend,
-  painAltersMovement,
-  sessionsThisWeek,
-  loadVsNormal,
+  sleep, stress, fatigue, soreness,
+  painScore, painTrend, painAltersMovement,
+  sessionsThisWeek, loadVsNormal,
+  restingHrBpm, hrvMs, sleepHours,
+  baseline
 }) {
-  // Youth-calibrated sleep mapping (teens need 8-10hrs)
-  // Sleep 1/5 = severely sleep deprived = 5+ poor nights
-  // Sleep 2/5 = poor sleep = 3 poor nights
-  // Sleep 3/5 = average = 1 poor night
-  // Sleep 4-5/5 = good/great = 0 poor nights
-  const sleepNightsBelowSix =
-    sleep === 1 ? 5 : sleep === 2 ? 3 : sleep === 3 ? 1 : 0
+  // SLEEP — use actual hours if provided (Milewski et al. 2014)
+  // <7hrs significantly increases injury risk for active adults
+  let sleepNightsBelowSix = 0
+  if (sleepHours != null) {
+    sleepNightsBelowSix =
+      sleepHours < 6 ? 3 :
+      sleepHours < 7 ? 2 :
+      sleepHours < 7.5 ? 1 : 0
+  } else {
+    sleepNightsBelowSix =
+      sleep === 1 ? 5 : sleep === 2 ? 3 :
+      sleep === 3 ? 1 : 0
+  }
 
-  // Fatigue mapping — more aggressive for youth
+  // HRV vs personal baseline
+  let hrvVsBaselinePct = null
+  if (hrvMs != null && baseline?.avgHrv != null) {
+    hrvVsBaselinePct = ((hrvMs - baseline.avgHrv) / baseline.avgHrv) * 100
+  }
+
+  // RHR vs personal baseline
+  let rhrVsBaselineBpm = null
+  if (restingHrBpm != null && baseline?.avgRhr != null) {
+    rhrVsBaselineBpm = restingHrBpm - baseline.avgRhr
+  }
+
+  // Data source for UI display
+  const dataSource =
+    (hrvMs != null || restingHrBpm != null) && baseline?.hasWearableBaseline
+      ? 'wearable'
+      : (hrvMs != null || restingHrBpm != null)
+      ? 'wearable_no_baseline'
+      : 'self_report'
+
+  // Fatigue mapping
   const morningFatigue =
     fatigue === 5 ? 10 : fatigue === 4 ? 8 :
     fatigue === 3 ? 5 : fatigue === 2 ? 3 : 1
 
-  const sessions = sessionsThisWeek ?? 0
-
-  // Load spike detection from self-report
-  // "More than usual" + high sessions = mileage spike proxy
+  // Load spike detection (Hulin et al. 2016)
   const mileageChangePct =
-    loadVsNormal === 'more' && sessions >= 4 ? 35 :
-    loadVsNormal === 'more' && sessions >= 3 ? 22 :
+    loadVsNormal === 'more' && sessionsThisWeek >= 4 ? 35 :
+    loadVsNormal === 'more' && sessionsThisWeek >= 3 ? 22 :
     loadVsNormal === 'more' ? 15 :
     loadVsNormal === 'less' ? -15 : 0
 
-  // Hard sessions estimate from total sessions + load
   const hardSessionsThisWeek =
-    loadVsNormal === 'more' ? Math.ceil(sessions * 0.6) :
-    Math.ceil(sessions * 0.4)
+    loadVsNormal === 'more'
+      ? Math.ceil((sessionsThisWeek ?? 3) * 0.6)
+      : Math.ceil((sessionsThisWeek ?? 3) * 0.4)
 
   return {
     sleepNightsBelowSix,
@@ -46,8 +65,12 @@ export function mapToSignals({
     hardSessionsThisWeek,
     mileageChangePct,
     acwr: null,
-    hrvVsBaselinePct: null,
-    rhrVsBaselineBpm: null,
-    hasBaseline: false,
+    hrvVsBaselinePct,
+    rhrVsBaselineBpm,
+    hasBaseline: baseline?.hasWearableBaseline ?? false,
+    dataSource,
+    rawHrvMs: hrvMs,
+    rawRhrBpm: restingHrBpm,
+    rawSleepHours: sleepHours,
   }
 }
