@@ -10,10 +10,10 @@ import { getAthleteId } from '../utils/athleteId'
 const ATHLETE_ID = getAthleteId()
 
 const SLIDERS = [
-  { key: 'sleep', label: 'Sleep Quality', emojis: ['😴','😕','😐','🙂','😁'] },
-  { key: 'stress', label: 'Stress Level', emojis: ['😌','🙂','😐','😟','😩'] },
-  { key: 'fatigue', label: 'Fatigue', emojis: ['⚡','🙂','😐','😓','🥴'] },
-  { key: 'soreness', label: 'Soreness', emojis: ['💪','🙂','😐','😣','🤕'] },
+  { key: 'sleep',    label: 'Sleep Quality', emojis: ['😴','😕','😐','🙂','😁'], leftLabel: 'Very poor',  rightLabel: 'Great',      gradient: 'pos' },
+  { key: 'stress',   label: 'Stress Level',  emojis: ['😌','🙂','😐','😟','😩'], leftLabel: 'Calm',       rightLabel: 'Overwhelmed', gradient: 'neg' },
+  { key: 'fatigue',  label: 'Fatigue',       emojis: ['⚡','🙂','😐','😓','🥴'], leftLabel: 'Fresh legs', rightLabel: 'Exhausted',   gradient: 'neg' },
+  { key: 'soreness', label: 'Soreness',      emojis: ['💪','🙂','😐','😣','🤕'], leftLabel: 'None',       rightLabel: 'Very sore',   gradient: 'neg' },
 ]
 
 const SESSIONS = [0, 1, 2, 3, 4, 5]
@@ -171,7 +171,7 @@ export default function CheckIn() {
       </div>
 
       {/* Sliders */}
-      {SLIDERS.map(({ key, label, emojis }) => (
+      {SLIDERS.map(({ key, label, emojis, leftLabel, rightLabel, gradient }) => (
         <div key={key} className="check-in__field">
           <div className="check-in__label-row">
             <span className="check-in__label">{label}</span>
@@ -180,12 +180,11 @@ export default function CheckIn() {
           <input
             type="range" min={1} max={5} value={sliders[key]}
             onChange={e => setSliders(s => ({ ...s, [key]: parseInt(e.target.value) }))}
-            className="check-in__slider"
+            className={`check-in__slider check-in__slider--${gradient}`}
           />
-          <div className="check-in__emoji-row">
-            {emojis.map((em, i) => (
-              <span key={i} className={`check-in__emoji-label ${sliders[key] === i + 1 ? 'active' : ''}`}>{em}</span>
-            ))}
+          <div className="check-in__track-labels">
+            <span className="check-in__track-label">{leftLabel}</span>
+            <span className="check-in__track-label">{rightLabel}</span>
           </div>
         </div>
       ))}

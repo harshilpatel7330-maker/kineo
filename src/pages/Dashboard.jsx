@@ -17,9 +17,7 @@ const ATHLETE_ID = getAthleteId()
 
 const SPORT_LABELS = {
   runner: { emoji: '🏃', label: 'Runner' },
-  'american-football': { emoji: '🏈', label: 'Football' },
-  'team-sport': { emoji: '⚽', label: 'Team Sport' },
-  other: { emoji: '🏅', label: 'Other Sport' },
+  recreational: { emoji: '💪', label: 'Recreational Athlete' },
 }
 
 const WEARABLE_LABELS = {
@@ -154,7 +152,7 @@ export default function Dashboard() {
     fetchHistory()
   }, [])
 
-  const sport = profile?.sport ? SPORT_LABELS[profile.sport] : null
+  const sport = profile?.pathway ? SPORT_LABELS[profile.pathway] : null
   const wearable = profile?.wearable ? WEARABLE_LABELS[profile.wearable] : null
   const checkin = lastResult?.checkin
   const readiness = checkin ? calcReadiness(checkin) : null

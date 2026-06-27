@@ -105,6 +105,24 @@ export default function Recommendation() {
         <DataQuality dataSource={dataSource} />
       </div>
 
+      {/* Planned Workout */}
+      <div className="recommendation__card">
+        <p className="recommendation__plan-eyebrow">TODAY'S PLAN</p>
+        {(result.decision === 'MODIFY' || result.decision === 'RECOVER') ? (
+          <>
+            <p className="recommendation__plan-text recommendation__plan-text--crossed">
+              Your regular training session
+            </p>
+            <div className="recommendation__instead">
+              <p className="recommendation__instead-label">RECOMMENDED INSTEAD</p>
+              <p className="recommendation__instead-action">{result.action}</p>
+            </div>
+          </>
+        ) : (
+          <p className="recommendation__plan-text">Your regular training session</p>
+        )}
+      </div>
+
       {/* Why today */}
       {result.reasons?.length > 0 && (
         <div className="recommendation__card">
