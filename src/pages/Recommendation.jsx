@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { translateReasons } from '../utils/reasonTranslator'
 import './Recommendation.css'
 
 const DECISION_MAP = {
@@ -21,36 +22,36 @@ function calcReadiness(checkin) {
   return Math.round(((6 - fatigue) + (6 - soreness) + sleep + (6 - stress)) / 16 * 100)
 }
 
-function DataSourcePill({ dataSource }) {
+function readinessTier(readiness) {
+  if (readiness > 70) return 'green'
+  if (readiness > 40) return 'amber'
+  return 'red'
+}
+
+function DataQuality({ dataSource }) {
   if (dataSource === 'wearable') {
     return (
-      <div className="rec__data-source green">
-        <span>⌚ Wearable data included</span>
-        <p>Your HRV and resting HR are being used for this recommendation</p>
+      <div className="recommendation__data-quality">
+        <span className="recommendation__data-pill recommendation__data-pill--wearable">
+          ⌚ Wearable data included
+        </span>
       </div>
     )
   }
   if (dataSource === 'wearable_no_baseline') {
     return (
-      <div className="rec__data-source amber">
-        <span>⌚ Wearable data — building baseline</span>
-        <p>Keep entering your stats daily — recommendations improve after 7 days of data</p>
+      <div className="recommendation__data-quality">
+        <span className="recommendation__data-pill recommendation__data-pill--wearable">
+          ⌚ Wearable data — building baseline
+        </span>
       </div>
     )
   }
   return (
-    <div className="rec__data-source grey">
-      <span>📱 Based on self-report</span>
-      <p>Add your resting HR and HRV tomorrow for more accurate recommendations</p>
-      <details className="rec__how-to">
-        <summary>How to find your stats</summary>
-        <ul>
-          <li>⌚ Apple Watch: Health app → Browse → Heart → Resting Heart Rate</li>
-          <li>💍 Oura: Today tab → Readiness score</li>
-          <li>⚫ WHOOP: Recovery screen → HRV</li>
-          <li>📱 No wearable: Check your phone's Health app</li>
-        </ul>
-      </details>
+    <div className="recommendation__data-quality">
+      <span className="recommendation__data-pill recommendation__data-pill--self">
+        📱 Based on self-report
+      </span>
     </div>
   )
 }
@@ -66,9 +67,9 @@ export default function Recommendation() {
 
   if (!data) {
     return (
-      <div className="rec rec--empty">
-        <p>No check-in found</p>
-        <button onClick={() => navigate('/checkin')} className="rec__btn-primary">
+      <div className="recommendation recommendation--empty">
+        <p className="recommendation__empty-text">No check-in found</p>
+        <button onClick={() => navigate('/checkin')} className="recommendation__btn recommendation__btn--primary">
           Check In Now
         </button>
       </div>
@@ -78,76 +79,81 @@ export default function Recommendation() {
   const { result, checkin, signals } = data
   const decision = DECISION_MAP[result.decision] ?? DECISION_MAP.MAINTAIN
   const readiness = calcReadiness(checkin)
-  const readinessColor = readiness > 70 ? '#22C55E' : readiness > 40 ? '#F59E0B' : '#EF4444'
+  const tier = readiness !== null ? readinessTier(readiness) : null
   const dataSource = signals?.dataSource ?? 'self_report'
 
   return (
-    <div className="rec">
-      <div className="rec__header">
-        <p className="rec__header-label">Today's Recommendation</p>
-        <p className="rec__date">{formatDate()}</p>
+    <div className="recommendation">
+      <div className="recommendation__header">
+        <p className="recommendation__eyebrow">Today's Recommendation</p>
+        <p className="recommendation__date">{formatDate()}</p>
       </div>
 
       {/* Cumulative load warning */}
       {result.warnings?.length > 0 && (
-        <div className="rec__warning-banner">
-          ⚠️ {result.warnings[0]}
-          <p className="rec__warning-note">
-            Research shows this pattern significantly increases injury risk. 
-            A deload week now prevents weeks of forced rest later.
-          </p>
+        <div className="recommendation__card">
+          <h3 className="recommendation__card-title">⚠️ Worth noting</h3>
+          <p className="recommendation__action">{result.warnings[0]}</p>
         </div>
       )}
 
       {/* Decision card */}
-      <div className="rec__decision-card" style={{ background: decision.color }}>
-        <div className="rec__decision-emoji">{decision.emoji}</div>
-        <div className="rec__decision-label">{decision.label}</div>
-        <div className="rec__confidence-badge">{result.confidence} confidence</div>
+      <div className="recommendation__decision" style={{ background: decision.color }}>
+        <div className="recommendation__decision-emoji">{decision.emoji}</div>
+        <h2 className="recommendation__decision-label">{decision.label}</h2>
+        <span className="recommendation__confidence">{result.confidence} CONFIDENCE</span>
+        <DataQuality dataSource={dataSource} />
       </div>
-
-      {/* Data source */}
-      <DataSourcePill dataSource={dataSource} />
 
       {/* Why today */}
       {result.reasons?.length > 0 && (
-        <div className="rec__card">
-          <h3 className="rec__card-title">Why today?</h3>
-          <ul className="rec__reasons">
-            {result.reasons.map((r, i) => <li key={i}>{r}</li>)}
+        <div className="recommendation__card">
+          <h3 className="recommendation__card-title">Why today?</h3>
+          <ul className="recommendation__list">
+            {translateReasons(result.reasons).map((r, i) => (
+              <li key={i}>
+                {r.plain}
+                {r.plain !== r.technical && (
+                  <details className="rec__reason-detail">
+                    <summary>See the data</summary>
+                    <p>{r.technical}</p>
+                  </details>
+                )}
+              </li>
+            ))}
           </ul>
         </div>
       )}
 
       {/* Action */}
-      <div className="rec__card">
-        <h3 className="rec__card-title">What to do</h3>
-        <p className="rec__action">{result.action}</p>
+      <div className="recommendation__card">
+        <h3 className="recommendation__card-title">What to do</h3>
+        <p className="recommendation__action">{result.action}</p>
         {result.watchFor && (
-          <div className="rec__watch-for">
-            <span className="rec__watch-label">WATCH FOR</span>
-            <p>{result.watchFor}</p>
+          <div className="recommendation__watch">
+            <span className="recommendation__watch-label">Watch for</span>
+            <p className="recommendation__watch-text">{result.watchFor}</p>
           </div>
         )}
       </div>
 
       {/* Readiness score */}
       {readiness !== null && (
-        <div className="rec__readiness" style={{ borderColor: readinessColor }}>
-          <div className="rec__readiness-score" style={{ color: readinessColor }}>
-            {readiness}%
-          </div>
-          <div className="rec__readiness-label">Readiness Score</div>
+        <div className={`recommendation__readiness recommendation__readiness--${tier}`}>
+          <div className="recommendation__readiness-value">{readiness}%</div>
+          <div className="recommendation__readiness-label">Readiness Score</div>
         </div>
       )}
 
       {/* Buttons */}
-      <button className="rec__btn-outline" onClick={() => navigate('/checkin')}>
-        Check in again
-      </button>
-      <button className="rec__btn-primary" onClick={() => navigate('/dashboard')}>
-        Go to Dashboard
-      </button>
+      <div className="recommendation__actions">
+        <button className="recommendation__btn recommendation__btn--outline" onClick={() => navigate('/checkin')}>
+          Check in again
+        </button>
+        <button className="recommendation__btn recommendation__btn--primary" onClick={() => navigate('/dashboard')}>
+          Go to Dashboard
+        </button>
+      </div>
     </div>
   )
 }

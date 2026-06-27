@@ -274,3 +274,27 @@
 .recommendation__btn:active {
   transform: scale(0.98);
 }
+.rec__reason-plain {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.rec__reason-detail {
+  margin-top: 4px;
+}
+
+.rec__reason-detail summary {
+  font-size: 0.78rem;
+  color: #888;
+  cursor: pointer;
+}
+
+.rec__reason-detail p {
+  font-size: 0.78rem;
+  color: #666;
+  font-family: monospace;
+  margin: 4px 0 0;
+  background: #F8F8F8;
+  padding: 6px 8px;
+  border-radius: 6px;
+}

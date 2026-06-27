@@ -470,17 +470,30 @@ export function evaluate(signals) {
   let confidence = CONFIDENCE.MEDIUM;
   if (hasNonSupportingHighPriority) {
     confidence = CONFIDENCE.HIGH;
-  } else if (priorities.every(p => p === 'P4' || p === 'P5')) {
+  } else if (priorities.every(p => p === 'P4') && priorities.length > 0) {
     confidence = CONFIDENCE.LOW;
   }
 
+  // Missing data should only lower confidence when the decision itself
+  // is ambiguous — not automatically, just because optional fields like
+  // resting heart rate weren't filled in. A clearly-good or clearly-bad
+  // day is still clear even with some fields blank.
   const keySignals = ['acwr', 'hrvVsBaselinePct', 'rhrVsBaselineBpm', 'sleepNightsBelowSix', 'painScore'];
   const missing = keySignals.filter(k => signals[k] == null);
-  if (missing.length >= 3) {
+
+  // "Ambiguous" means: no rule fired decisively (MAINTAIN by default with
+  // nothing driving it) AND a meaningful amount of data is missing.
+  // A clear PUSH, MODIFY, or RECOVER driven by real signals (pain, load,
+  // sleep) stays at whatever confidence it already earned, regardless of
+  // which optional wearable fields are blank.
+  const decisionIsDefaultFallback = firedRules.length === 0;
+  const significantDataMissing = missing.length >= 3;
+
+  if (decisionIsDefaultFallback && significantDataMissing) {
     confidence = CONFIDENCE.LOW;
-    warnings.push(`Missing ${missing.length} key signals (${missing.join(', ')}) — confidence downgraded.`);
+    warnings.push(`Missing ${missing.length} signal(s) (${missing.join(', ')}) — limited data to base this on.`);
   } else if (missing.length > 0) {
-    warnings.push(`${missing.length} signal(s) missing (${missing.join(', ')}) — some rules may not have fired.`);
+    warnings.push(`${missing.length} signal(s) not entered (${missing.join(', ')}) — add these for more precise recommendations.`);
   }
 
   const drivingRule = firedRules.find(r => r.decision === finalDecision);
