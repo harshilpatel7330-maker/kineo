@@ -73,6 +73,18 @@ export default function CheckIn() {
     }
     setLoading(true)
     try {
+      // Ensure this athlete exists in the athletes table before
+      // inserting into recommendation_outputs, which has a foreign
+      // key constraint on athlete_id. Without this, every check-in's
+      // recommendation silently fails to save.
+      const { error: athleteError } = await supabase
+        .from('athletes')
+        .upsert(
+          { id: ATHLETE_ID, email: `${ATHLETE_ID}@kineo.local` },
+          { onConflict: 'id' }
+        )
+      if (athleteError) console.error('Failed to ensure athlete row:', athleteError)
+
       const baseline = await calculateBaseline()
       const cumulativeLoad = await fetchCumulativeLoad()
 
