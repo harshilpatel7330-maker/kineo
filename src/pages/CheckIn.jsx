@@ -6,7 +6,8 @@ import { mapToSignals } from '../utils/signalMapper'
 import { calculateBaseline, fetchCumulativeLoad } from '../utils/baselineCalculator'
 import './CheckIn.css'
 
-const ATHLETE_ID = '00000000-0000-0000-0000-000000000001'
+import { getAthleteId } from '../utils/athleteId'
+const ATHLETE_ID = getAthleteId()
 
 const SLIDERS = [
   { key: 'sleep', label: 'Sleep Quality', emojis: ['😴','😕','😐','🙂','😁'] },

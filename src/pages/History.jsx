@@ -4,7 +4,8 @@ import { supabase } from '../supabaseClient'
 import { mapRecommendation } from '../utils/recommendationMapper'
 import './History.css'
 
-const ATHLETE_ID = '00000000-0000-0000-0000-000000000001'
+import { getAthleteId } from '../utils/athleteId'
+const ATHLETE_ID = getAthleteId()
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', {

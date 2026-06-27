@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseClient'
 
-const ATHLETE_ID = '00000000-0000-0000-0000-000000000001'
+import { getAthleteId } from '../utils/athleteId'
+const ATHLETE_ID = getAthleteId()
 
 export async function calculateBaseline() {
   const { data } = await supabase

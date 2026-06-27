@@ -23,7 +23,6 @@ export const CONFIDENCE = Object.freeze({
   LOW:    'LOW',
 });
 
-// Decision severity order — higher index = more conservative
 const SEVERITY = [
   DECISIONS.PUSH,
   DECISIONS.MAINTAIN,
@@ -31,66 +30,7 @@ const SEVERITY = [
   DECISIONS.RECOVER,
 ];
 
-// ─── Types (JSDoc) ────────────────────────────────────────────────────────────
-
-/**
- * @typedef {Object} Signals
- *
- * Workload
- * @property {number|null}  acwr                  - Acute:Chronic Workload Ratio (e.g. 1.1)
- * @property {number|null}  mileageChangePct       - % change in weekly mileage vs prior week
- *
- * Recovery
- * @property {number|null}  hrvVsBaselinePct       - HRV % vs personal 7-day rolling baseline
- * @property {number|null}  rhrVsBaselineBpm       - Resting HR delta vs personal 7-day rolling baseline (bpm)
- * @property {number|null}  sleepNightsBelowSix    - Count of nights <6 hrs in last 7 days
- *
- * Pain
- * @property {number|null}  painScore              - NRS 0–10
- * @property {'improving'|'stable'|'worsening'|null} painTrend
- * @property {boolean|null} painAltersMovement     - Does it change gait/mechanics?
- *
- * Load structure
- * @property {number|null}  hardSessionsThisWeek   - Count of intensity_label='hard' sessions in last 7 days
- * @property {boolean|null} backToBackHard          - Two hard sessions on consecutive calendar days?
- *
- * Session feel
- * @property {number|null}  sessionRpe             - Borg CR-10, taken 20–30 min post-session
- * @property {boolean|null} rpeHighOnEasyDay        - RPE >8 on a planned easy day?
- * @property {number|null}  morningFatigue          - Self-reported 0–10
- *
- * Context flags
- * @property {boolean}      hasBaseline            - Has at least 7 days of history? (set false for new users)
- * @property {boolean|null} scheduledDeload         - Athlete is in a planned deload week
- */
-
-/**
- * @typedef {Object} FiredRule
- * @property {string} id
- * @property {string} priority
- * @property {string} name
- * @property {string} reason    - One-sentence human-readable explanation
- * @property {string} decision
- */
-
-/**
- * @typedef {Object} EngineResult
- * @property {string}      decision    - PUSH | MAINTAIN | MODIFY | RECOVER
- * @property {string}      confidence  - HIGH | MEDIUM | LOW
- * @property {FiredRule[]} rulesFired
- * @property {string[]}    reasons     - One entry per fired rule (DB array field)
- * @property {string}      action      - Specific concrete session guidance
- * @property {string}      watchFor    - Escalation trigger
- * @property {string[]}    warnings    - Non-blocking notices (missing data, low confidence notes)
- */
-
 // ─── Rule Definitions ─────────────────────────────────────────────────────────
-
-/**
- * Each rule returns null (not triggered) or a FiredRule object.
- * Rules are evaluated in order; the engine collects ALL that fire,
- * then picks the highest-severity decision across them.
- */
 
 const RULES = [
 
@@ -147,26 +87,28 @@ const RULES = [
     },
   },
 
-  // ── P2: Combined recovery deficit ──────────────────────────────────────────
+  // ── P3: Supporting recovery signal — modifies, doesn't independently RECOVER
 
   {
-    id: 'P2-combined-recovery',
-    priority: 'P2',
-    name: 'Combined recovery deficit',
+    id: 'P3-combined-recovery',
+    priority: 'P3',
+    name: 'Combined recovery deficit (supporting signal)',
     evaluate({ hrvVsBaselinePct, rhrVsBaselineBpm, hasBaseline }) {
       if (!hasBaseline) return null;
       if (hrvVsBaselinePct == null || rhrVsBaselineBpm == null) return null;
       if (hrvVsBaselinePct >= -15 || rhrVsBaselineBpm <= 7) return null;
       return this._fire(
-        `HRV ${Math.round(hrvVsBaselinePct)}% below baseline AND resting HR +${Math.round(rhrVsBaselineBpm)} bpm above baseline — both flags active simultaneously`
+        `Supporting signal: HRV ${Math.round(hrvVsBaselinePct)}% below baseline and resting HR +${Math.round(rhrVsBaselineBpm)} bpm above baseline — both flags active, suggesting reduced recovery capacity`
       );
     },
-    action: 'Recovery day only. No structured training. Sleep, nutrition, and hydration are your session today. Reassess tomorrow morning.',
-    watchFor: 'If this pattern repeats for 3+ consecutive days, seek medical or sports science review.',
+    action: 'Your recovery markers suggest reduced capacity right now. Combined with today\'s training signals, prioritise rest, sleep, and hydration.',
+    watchFor: 'If this pattern repeats for 3+ consecutive days, seek medical or sports science review even if load looks normal.',
+    isSupportingSignal: true,
     _fire(reason) {
       return { id: this.id, priority: this.priority, name: this.name,
-               reason, decision: DECISIONS.RECOVER,
-               action: this.action, watchFor: this.watchFor };
+               reason, decision: DECISIONS.MODIFY,
+               action: this.action, watchFor: this.watchFor,
+               isSupportingSignal: true };
     },
   },
 
@@ -314,7 +256,7 @@ const RULES = [
     name: 'Mild stable pain',
     evaluate({ painScore, painTrend }) {
       if (painScore == null || painScore < 1 || painScore > 2) return null;
-      if (painTrend === 'worsening') return null; // escalated by P1-pain-critical
+      if (painTrend === 'worsening') return null;
       return this._fire(
         `pain score ${painScore}/10 — stable or improving, monitor closely`
       );
@@ -338,7 +280,6 @@ const RULES = [
                       hrvVsBaselinePct >= -15 && hrvVsBaselinePct < -5;
       const rhrMild = rhrVsBaselineBpm != null &&
                       rhrVsBaselineBpm >= 4 && rhrVsBaselineBpm <= 7;
-      // Only flag if NOT both simultaneously (that's P2)
       if (!hrvMild && !rhrMild) return null;
       if (hrvVsBaselinePct < -15 && rhrVsBaselineBpm > 7) return null;
       const reasons = [];
@@ -348,10 +289,12 @@ const RULES = [
     },
     action: 'Proceed with your planned session. Avoid adding intensity or volume beyond plan.',
     watchFor: 'If both HRV and RHR flags fire on the same day, upgrade to MODIFY or RECOVER.',
+    isSupportingSignal: true,
     _fire(reason) {
       return { id: this.id, priority: this.priority, name: this.name,
                reason, decision: DECISIONS.MAINTAIN,
-               action: this.action, watchFor: this.watchFor };
+               action: this.action, watchFor: this.watchFor,
+               isSupportingSignal: true };
     },
   },
 
@@ -362,8 +305,6 @@ const RULES = [
     evaluate({ mileageChangePct, acwr }) {
       const mileageCaution = mileageChangePct != null &&
                              mileageChangePct >= 10 && mileageChangePct < 20;
-      const acwrCaution = acwr != null && acwr >= 1.3 && acwr < 1.5;
-      // Avoid double-flagging with P3
       if (!mileageCaution) return null;
       return this._fire(
         `mileage up ${Math.round(mileageChangePct)}% — acceptable but monitor (10–20% range)`
@@ -486,15 +427,8 @@ function noBaselineResult(signals) {
 
 // ─── Core evaluator ───────────────────────────────────────────────────────────
 
-/**
- * Evaluate athlete signals and return a training recommendation.
- *
- * @param {Signals} signals
- * @returns {EngineResult}
- */
 export function evaluate(signals) {
 
-  // Handle new athletes with no baseline
   if (signals.hasBaseline === false) {
     return noBaselineResult(signals);
   }
@@ -502,13 +436,11 @@ export function evaluate(signals) {
   const warnings = [];
   const firedRules = [];
 
-  // Evaluate every rule and collect all that fire
   for (const rule of RULES) {
     const result = rule.evaluate(signals);
     if (result) firedRules.push(result);
   }
 
-  // Default when nothing fires
   if (firedRules.length === 0) {
     return {
       decision:   DECISIONS.MAINTAIN,
@@ -521,7 +453,6 @@ export function evaluate(signals) {
     };
   }
 
-  // Highest severity decision wins (P1 always beats P5)
   let finalDecision = firedRules[0].decision;
   for (const rule of firedRules) {
     if (SEVERITY.indexOf(rule.decision) > SEVERITY.indexOf(finalDecision)) {
@@ -529,16 +460,20 @@ export function evaluate(signals) {
     }
   }
 
-  // Confidence: HIGH if any P1/P2 fired; LOW if only P4/P5; MEDIUM otherwise
+  // HIGH confidence requires a non-supporting P1/P2 rule — HRV/RHR
+  // supporting signals alone (even though they're tagged P3 now) should
+  // never independently produce HIGH confidence.
+  const hasNonSupportingHighPriority = firedRules.some(
+    r => (r.priority === 'P1' || r.priority === 'P2') && !r.isSupportingSignal
+  );
   const priorities = firedRules.map(r => r.priority);
   let confidence = CONFIDENCE.MEDIUM;
-  if (priorities.some(p => p === 'P1' || p === 'P2')) {
+  if (hasNonSupportingHighPriority) {
     confidence = CONFIDENCE.HIGH;
   } else if (priorities.every(p => p === 'P4' || p === 'P5')) {
     confidence = CONFIDENCE.LOW;
   }
 
-  // Data completeness warnings
   const keySignals = ['acwr', 'hrvVsBaselinePct', 'rhrVsBaselineBpm', 'sleepNightsBelowSix', 'painScore'];
   const missing = keySignals.filter(k => signals[k] == null);
   if (missing.length >= 3) {
@@ -548,15 +483,23 @@ export function evaluate(signals) {
     warnings.push(`${missing.length} signal(s) missing (${missing.join(', ')}) — some rules may not have fired.`);
   }
 
-  // Build action and watchFor from the most severe rule
   const drivingRule = firedRules.find(r => r.decision === finalDecision);
+
+  // Order reasons: load/sleep/pain signals first (most evidence-based for
+  // injury risk per the research hierarchy), HRV/RHR supporting signals
+  // last (recovery context, not independent injury predictors).
+  const sortedRules = [...firedRules].sort((a, b) => {
+    const aSupporting = a.isSupportingSignal ? 1 : 0;
+    const bSupporting = b.isSupportingSignal ? 1 : 0;
+    return aSupporting - bSupporting;
+  });
 
   return {
     decision:   finalDecision,
     confidence,
-    rulesFired: firedRules.map(({ id, priority, name, reason, decision }) =>
+    rulesFired: sortedRules.map(({ id, priority, name, reason, decision }) =>
                   ({ id, priority, name, reason, decision })),
-    reasons:    firedRules.map(r => r.reason),
+    reasons:    sortedRules.map(r => r.reason),
     action:     drivingRule.action,
     watchFor:   drivingRule.watchFor,
     warnings,
@@ -565,13 +508,6 @@ export function evaluate(signals) {
 
 // ─── Scenario runner (for testing / validation) ───────────────────────────────
 
-/**
- * Run an array of labelled scenarios and return pass/fail results.
- * Each scenario: { id, label, signals, expectedDecision }
- *
- * @param {Array} scenarios
- * @returns {Array} results with pass boolean and actual result
- */
 export function runScenarios(scenarios) {
   return scenarios.map(scenario => {
     const result = evaluate(scenario.signals);
