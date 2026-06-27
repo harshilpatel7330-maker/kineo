@@ -389,49 +389,9 @@ const RULES = [
 
 ];
 
-// ─── No-baseline handler ──────────────────────────────────────────────────────
-
-function noBaselineResult(signals) {
-  const warnings = ['No personal baseline established yet — HRV and RHR rules are disabled. Baseline forms after 7 days of logged data.'];
-  const painScore = signals.painScore ?? 0;
-  let decision = DECISIONS.MAINTAIN;
-  let confidence = CONFIDENCE.LOW;
-  const reasons = ['Insufficient baseline data — defaulting to MAINTAIN'];
-  let action = 'Proceed with a moderate planned session. Establish 7 days of morning check-ins before load rules activate.';
-  let watchFor = 'Log every morning check-in to build your personal baseline as quickly as possible.';
-
-  if (painScore >= 3) {
-    decision = DECISIONS.MODIFY;
-    confidence = CONFIDENCE.HIGH;
-    reasons[0] = `Pain ${painScore}/10 flagged even without baseline`;
-    action = 'Reduce intensity and avoid aggravating movements. Pain rules apply regardless of baseline.';
-    watchFor = 'Escalate to RECOVER if pain reaches 5+ or worsens.';
-  }
-  if (painScore >= 5) {
-    decision = DECISIONS.RECOVER;
-    confidence = CONFIDENCE.HIGH;
-    reasons[0] = `Pain ${painScore}/10 — stop/refer threshold regardless of baseline`;
-    action = 'No loading. Active recovery only. Seek evaluation if no improvement in 3 days.';
-    watchFor = 'Stop if pain changes your gait.';
-  }
-
-  return {
-    decision, confidence,
-    rulesFired: [],
-    reasons,
-    action,
-    watchFor,
-    warnings,
-  };
-}
-
 // ─── Core evaluator ───────────────────────────────────────────────────────────
 
 export function evaluate(signals) {
-
-  if (signals.hasBaseline === false) {
-    return noBaselineResult(signals);
-  }
 
   const warnings = [];
   const firedRules = [];

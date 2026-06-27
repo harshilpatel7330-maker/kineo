@@ -204,6 +204,14 @@ export default function Dashboard() {
         </section>
       )}
 
+      <button
+        type="button"
+        className="dashboard__log-btn"
+        onClick={() => navigate('/log-session')}
+      >
+        + Log a session
+      </button>
+
       <section className="dashboard__section">
         <h2 className="dashboard__section-title">7-Day Readiness</h2>
         <div className="dashboard__chart-wrap">

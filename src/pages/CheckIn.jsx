@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { evaluate } from '../athleteiq-engine'
 import { supabase } from '../supabaseClient'
 import { mapToSignals } from '../utils/signalMapper'
-import { calculateBaseline, fetchCumulativeLoad } from '../utils/baselineCalculator'
+import { fetchCumulativeLoad, updateBaseline, updateRecoveryMetrics } from '../utils/baselineCalculator'
 import './CheckIn.css'
 
 import { getAthleteId } from '../utils/athleteId'
@@ -73,10 +73,6 @@ export default function CheckIn() {
     }
     setLoading(true)
     try {
-      // Ensure this athlete exists in the athletes table before
-      // inserting into recommendation_outputs, which has a foreign
-      // key constraint on athlete_id. Without this, every check-in's
-      // recommendation silently fails to save.
       const { error: athleteError } = await supabase
         .from('athletes')
         .upsert(
@@ -85,23 +81,47 @@ export default function CheckIn() {
         )
       if (athleteError) console.error('Failed to ensure athlete row:', athleteError)
 
-      const baseline = await calculateBaseline()
       const cumulativeLoad = await fetchCumulativeLoad()
 
-      const signals = mapToSignals({
+      // Insert checkin first so updateBaseline/updateRecoveryMetrics include
+      // today's wearable readings before mapToSignals queries those tables.
+      const { error: checkinError } = await supabase
+        .from('checkins')
+        .insert({
+          athlete_id:     ATHLETE_ID,
+          sleep_quality:  sliders.sleep,
+          stress:         sliders.stress,
+          fatigue:        sliders.fatigue,
+          soreness:       sliders.soreness,
+          has_pain:       hasPain,
+          resting_hr_bpm: restingHrBpm ? parseInt(restingHrBpm, 10) : null,
+          hrv_ms:         hrvMs ? parseFloat(hrvMs) : null,
+          sleep_hours:    sleepHours ? parseFloat(sleepHours) : null,
+        })
+      if (checkinError) console.error('Failed to save check-in:', checkinError)
+
+      // Compare today's HRV/RHR against the pre-today baseline (excludes
+      // today's own row, which was just inserted above).
+      await updateRecoveryMetrics(ATHLETE_ID, {
+        hrv_ms:         hrvMs ? parseFloat(hrvMs) : null,
+        resting_hr_bpm: restingHrBpm ? parseInt(restingHrBpm, 10) : null,
+        fatigue:        sliders.fatigue,
+      })
+      // Then fold today into the rolling baseline so tomorrow's comparison
+      // is based on a window that includes today.
+      await updateBaseline(ATHLETE_ID)
+
+      const signals = await mapToSignals(ATHLETE_ID, {
         sleep: sliders.sleep,
         stress: sliders.stress,
         fatigue: sliders.fatigue,
         soreness: sliders.soreness,
-        painScore,
-        painTrend,
-        painAltersMovement,
-        sessionsThisWeek,
-        loadVsNormal,
+        painScore: hasPain ? painScore : 0,
+        painTrend: hasPain ? painTrend : 'stable',
+        painAltersMovement: hasPain ? painAltersMovement : false,
         restingHrBpm: restingHrBpm ? parseFloat(restingHrBpm) : null,
         hrvMs: hrvMs ? parseFloat(hrvMs) : null,
         sleepHours: sleepHours ? parseFloat(sleepHours) : null,
-        baseline,
       })
 
       const result = evaluate(signals)
@@ -113,34 +133,18 @@ export default function CheckIn() {
         )
       }
 
-      // Save check-in to Supabase
-      const { error: checkinError } = await supabase
-        .from('checkins')
-        .insert({
-          athlete_id: ATHLETE_ID,
-          sleep_quality: sliders.sleep,
-          stress: sliders.stress,
-          fatigue: sliders.fatigue,
-          soreness: sliders.soreness,
-          has_pain: hasPain,
-          resting_hr_bpm: restingHrBpm ? parseInt(restingHrBpm) : null,
-          hrv_ms: hrvMs ? parseFloat(hrvMs) : null,
-          sleep_hours: sleepHours ? parseFloat(sleepHours) : null,
-        })
-      if (checkinError) console.error('Failed to save check-in:', checkinError)
-
       // Save recommendation to Supabase
       const { error: recError } = await supabase
         .from('recommendation_outputs')
         .insert({
-          athlete_id: ATHLETE_ID,
-          decision: result.decision,
-          confidence: result.confidence,
-          reasons: result.reasons,
-          action: result.action,
-          watch_for: result.watchFor,
-          signals_used: signals,
-          rules_fired: result.rulesFired,
+          athlete_id:   ATHLETE_ID,
+          decision:     result.decision,
+          confidence:   result.confidence,
+          reasons:      result.reasons,
+          action:       result.action,
+          watch_for:    result.watchFor,
+          signals_used: { ...signals, checkin: sliders },
+          rules_fired:  result.rulesFired,
         })
       if (recError) console.error('Failed to save recommendation:', recError)
 
@@ -149,7 +153,6 @@ export default function CheckIn() {
         signals,
         checkin: { ...sliders, sessionsThisWeek, loadVsNormal, trainingType },
         hasPain,
-        baseline,
         cumulativeLoad,
         date: new Date().toISOString(),
       }))
@@ -287,7 +290,7 @@ export default function CheckIn() {
       {/* Pain section */}
       <div className={`check-in__pain-section ${hasPain ? 'open' : ''}`}>
         <button className="check-in__pain-toggle"
-          onClick={() => setHasPain(!hasPain)}>
+          onClick={() => { if (hasPain) setPainScore(0); setHasPain(h => !h) }}>
           ⚠️ Any pain or discomfort? (tap to report)
           <span>{hasPain ? '▲' : '▼'}</span>
         </button>

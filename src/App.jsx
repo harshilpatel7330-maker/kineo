@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import CheckIn from './pages/CheckIn'
 import Dashboard from './pages/Dashboard'
 import History from './pages/History'
+import LogSession from './pages/LogSession'
 import Onboarding from './pages/Onboarding'
 import Recommendation from './pages/Recommendation'
 import './App.css'
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="/recommendation" element={<Recommendation />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/history" element={<History />} />
+          <Route path="/log-session" element={<LogSession />} />
         </Route>
       </Routes>
     </BrowserRouter>

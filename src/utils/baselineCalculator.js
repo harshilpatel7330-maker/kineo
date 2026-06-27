@@ -3,6 +3,12 @@ import { supabase } from '../supabaseClient'
 import { getAthleteId } from '../utils/athleteId'
 const ATHLETE_ID = getAthleteId()
 
+function dateOffsetISO(baseDate, offsetDays) {
+  const d = new Date(baseDate)
+  d.setDate(d.getDate() + offsetDays)
+  return d.toISOString().split('T')[0]
+}
+
 export async function calculateBaseline() {
   const { data } = await supabase
     .from('checkins')
@@ -12,10 +18,10 @@ export async function calculateBaseline() {
     .order('created_at', { ascending: false })
     .limit(7)
 
-  if (!data || data.length < 3) {
-    return { 
-      hasWearableBaseline: false, 
-      daysOfData: data?.length ?? 0 
+  if (!data || data.length < 7) {
+    return {
+      hasWearableBaseline: false,
+      daysOfData: data?.length ?? 0
     }
   }
 
@@ -38,6 +44,113 @@ export async function calculateBaseline() {
     avgRhr: Math.round(avgRhr * 10) / 10,
     avgHrv: avgHrv ? Math.round(avgHrv * 10) / 10 : null,
     avgSleep: avgSleep ? Math.round(avgSleep * 10) / 10 : null,
+  }
+}
+
+export async function updateBaseline(athleteId) {
+  const baseline = await calculateBaseline()
+
+  if (!baseline.hasWearableBaseline) return baseline
+
+  // Count distinct dates that have at least one wearable reading
+  const { data: wearableDays } = await supabase
+    .from('checkins')
+    .select('date')
+    .eq('athlete_id', athleteId)
+    .or('resting_hr_bpm.not.is.null,hrv_ms.not.is.null')
+
+  const daysOfData = new Set((wearableDays ?? []).map(d => d.date)).size
+
+  if (daysOfData === 0) return baseline
+
+  const { error } = await supabase.from('baselines').insert({
+    athlete_id:      athleteId,
+    avg_resting_hr:  baseline.avgRhr ?? null,
+    avg_hrv_ms:      baseline.avgHrv ?? null,
+    avg_sleep_hours: baseline.avgSleep ?? null,
+    days_of_data:    daysOfData,
+  })
+
+  if (error) console.error('Failed to insert baseline row:', error)
+
+  return { ...baseline, daysOfData }
+}
+
+// Pure function so the averaging logic is testable without a DB connection.
+export function computeHrvVsBaselinePct(todayHrv, priorReadings) {
+  if (todayHrv == null || !priorReadings.length) return null
+  const avg = priorReadings.reduce((s, v) => s + v, 0) / priorReadings.length
+  return Math.round(((todayHrv - avg) / avg) * 1000) / 10
+}
+
+export async function updateRecoveryMetrics(athleteId, { hrv_ms, resting_hr_bpm, fatigue }) {
+  const today = new Date().toISOString().split('T')[0]
+
+  // Query checkins strictly before today so today's own reading is excluded
+  // from the baseline used to assess today. Self-inclusive averaging biases
+  // the comparison especially when < 7 days of data exist.
+  const { data: priorCheckins } = await supabase
+    .from('checkins')
+    .select('resting_hr_bpm, hrv_ms')
+    .eq('athlete_id', athleteId)
+    .lt('date', today)
+    .or('resting_hr_bpm.not.is.null,hrv_ms.not.is.null')
+    .order('date', { ascending: false })
+    .limit(7)
+
+  const priorHrv = (priorCheckins ?? []).filter(c => c.hrv_ms != null).map(c => c.hrv_ms)
+  const priorRhr = (priorCheckins ?? []).filter(c => c.resting_hr_bpm != null).map(c => c.resting_hr_bpm)
+
+  const avgPriorRhr = priorRhr.length > 0
+    ? priorRhr.reduce((s, v) => s + v, 0) / priorRhr.length
+    : null
+
+  const hrv_vs_baseline_pct = computeHrvVsBaselinePct(hrv_ms, priorHrv)
+
+  const rhr_vs_baseline_bpm = resting_hr_bpm != null && avgPriorRhr != null
+    ? Math.round((resting_hr_bpm - avgPriorRhr) * 10) / 10
+    : null
+
+  // Count nights below 6 hrs in the last 7 days where sleep_hours was actually entered
+  const sevenDaysAgo = dateOffsetISO(today, -6)
+  const { data: recentCheckins } = await supabase
+    .from('checkins')
+    .select('sleep_hours')
+    .eq('athlete_id', athleteId)
+    .gte('date', sevenDaysAgo)
+    .lte('date', today)
+
+  const sleep_nights_below_six = (recentCheckins ?? [])
+    .filter(c => c.sleep_hours != null && c.sleep_hours < 6).length
+
+  const payload = {
+    athlete_id:           athleteId,
+    date:                 today,
+    hrv_ms:               hrv_ms ?? null,
+    resting_hr_bpm:       resting_hr_bpm ?? null,
+    hrv_vs_baseline_pct,
+    rhr_vs_baseline_bpm,
+    fatigue_score:        fatigue ?? null,
+    sleep_nights_below_six,
+    source:               'manual',
+  }
+
+  // Upsert: update today's row if it exists, otherwise insert
+  const { data: existing } = await supabase
+    .from('recovery_metrics')
+    .select('id')
+    .eq('athlete_id', athleteId)
+    .eq('date', today)
+    .maybeSingle()
+
+  if (existing) {
+    const { error } = await supabase
+      .from('recovery_metrics').update(payload).eq('id', existing.id)
+    if (error) console.error('Failed to update recovery_metrics:', error)
+  } else {
+    const { error } = await supabase
+      .from('recovery_metrics').insert(payload)
+    if (error) console.error('Failed to insert recovery_metrics:', error)
   }
 }
 

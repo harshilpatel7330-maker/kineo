@@ -1,11 +1,7 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from './supabaseClient'
+import { getAthleteId } from './utils/athleteId'
 
-const supabase = createClient(
-  'https://idzzvniwhmsafnisjeou.supabase.co',
-  'sb_publishable_Cddts0awnFTcReepHGgRww_dmPGstiu'
-)
-
-const ATHLETE_ID = '26516750-69af-4f26-856c-c40dd8b5ff36'
+const ATHLETE_ID = getAthleteId()
 
 const DAYS = [
   { daysAgo: 7, sleep: 4, stress: 2, fatigue: 2, soreness: 2, resting_hr_bpm: 56, hrv_ms: 62, sleep_hours: 7.5, decision: 'PUSH' },
@@ -18,7 +14,7 @@ const DAYS = [
 ]
 
 async function seed() {
-    const { error: athleteError } = await supabase
+  const { error: athleteError } = await supabase
     .from('athletes')
     .upsert(
       { id: ATHLETE_ID, email: `test-${ATHLETE_ID}@kineo.local` },
@@ -29,7 +25,7 @@ async function seed() {
     console.error('Failed to create athlete row:', athleteError)
     return
   }
-  console.log('Athlete row ensured.')
+  console.log('Athlete row ensured for', ATHLETE_ID)
 
   for (const day of DAYS) {
     const date = new Date()
@@ -44,20 +40,20 @@ async function seed() {
 
     const { error } = await supabase.from('recommendation_outputs').insert({
       athlete_id: ATHLETE_ID,
-      decision: day.decision,
+      decision:   day.decision,
       confidence: 'MEDIUM',
-      reasons: ['Seeded test data for dashboard preview'],
-      action: 'Proceed as planned.',
-      watch_for: 'N/A — test data',
+      reasons:    ['Seeded test data for dashboard preview'],
+      action:     'Proceed as planned.',
+      watch_for:  'N/A — test data',
       signals_used: {
         checkin,
         restingHrBpm: day.resting_hr_bpm,
-        hrvMs: day.hrv_ms,
-        sleepHours: day.sleep_hours,
-        dataSource: 'wearable',
+        hrvMs:        day.hrv_ms,
+        sleepHours:   day.sleep_hours,
+        dataSource:   'wearable',
       },
       rules_fired: [],
-      created_at: date.toISOString(),
+      created_at:  date.toISOString(),
     })
 
     if (error) {

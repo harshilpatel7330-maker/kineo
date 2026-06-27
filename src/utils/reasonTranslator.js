@@ -63,6 +63,11 @@ const TRANSLATIONS = [
         `You've had ${m[1]} nights of short sleep this week — sleep debt like this is one of the clearest predictors of injury risk, so it's worth prioritizing.`
     },
     {
+      match: /session RPE (\d+) on a planned easy day/,
+      translate: (m) =>
+        `Your effort came out at RPE ${m[1]} on a session planned to be easy — when easy days feel that hard it's usually a sign of accumulated fatigue your body hasn't cleared yet.`
+    },
+    {
       match: /two hard sessions on consecutive calendar days/,
       translate: () =>
         `You trained hard two days in a row without a break between — back-to-back hard sessions raise injury risk if they keep happening.`

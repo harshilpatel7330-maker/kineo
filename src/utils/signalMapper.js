@@ -1,76 +1,86 @@
-export function mapToSignals({
+import { supabase } from '../supabaseClient'
+
+export async function mapToSignals(athleteId, {
   sleep, stress, fatigue, soreness,
   painScore, painTrend, painAltersMovement,
-  sessionsThisWeek, loadVsNormal,
   restingHrBpm, hrvMs, sleepHours,
-  baseline
 }) {
-  // SLEEP — use actual hours if provided (Milewski et al. 2014)
-  // <7hrs significantly increases injury risk for active adults
-  let sleepNightsBelowSix = 0
-  if (sleepHours != null) {
-    sleepNightsBelowSix =
-      sleepHours < 6 ? 3 :
-      sleepHours < 7 ? 2 :
-      sleepHours < 7.5 ? 1 : 0
-  } else {
-    sleepNightsBelowSix =
-      sleep === 1 ? 5 : sleep === 2 ? 3 :
-      sleep === 3 ? 1 : 0
-  }
+  // Query all three tables concurrently — null data means no rows yet, not an error
+  const [trainingResult, recoveryResult, baselineResult] = await Promise.all([
+    supabase
+      .from('training_sessions')
+      .select('rpe, intensity_label, back_to_back_hard, acwr, mileage_change_pct, hard_sessions_this_week')
+      .eq('athlete_id', athleteId)
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('recovery_metrics')
+      .select('hrv_vs_baseline_pct, rhr_vs_baseline_bpm, sleep_nights_below_six')
+      .eq('athlete_id', athleteId)
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('baselines')
+      .select('days_of_data')
+      .eq('athlete_id', athleteId)
+      .order('calculated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
 
-  // HRV vs personal baseline
-  let hrvVsBaselinePct = null
-  if (hrvMs != null && baseline?.avgHrv != null) {
-    hrvVsBaselinePct = ((hrvMs - baseline.avgHrv) / baseline.avgHrv) * 100
-  }
+  const session     = trainingResult.data    // null when no sessions logged yet
+  const recovery    = recoveryResult.data    // null when no recovery_metrics yet
+  const baselineRow = baselineResult.data    // null when no baselines yet
 
-  // RHR vs personal baseline
-  let rhrVsBaselineBpm = null
-  if (restingHrBpm != null && baseline?.avgRhr != null) {
-    rhrVsBaselineBpm = restingHrBpm - baseline.avgRhr
-  }
+  // ── Training load signals (persisted by loadCalculator at session-log time) ──
+  const acwr                 = session?.acwr ?? null
+  const mileageChangePct     = session?.mileage_change_pct ?? null
+  const hardSessionsThisWeek = session?.hard_sessions_this_week ?? null
+  const backToBackHard       = session?.back_to_back_hard ?? false
+  const sessionRpe           = session?.rpe ?? null
+  const rpeHighOnEasyDay     = session != null &&
+    session.intensity_label === 'easy' && (session.rpe ?? 0) >= 7
 
-  // Data source for UI display
+  // ── Recovery signals (persisted by updateRecoveryMetrics after each check-in) ──
+  const hrvVsBaselinePct  = recovery?.hrv_vs_baseline_pct ?? null
+  const rhrVsBaselineBpm  = recovery?.rhr_vs_baseline_bpm ?? null
+  const sleepNightsBelowSix = recovery?.sleep_nights_below_six ?? null  // null not 0
+
+  // ── Baseline status (persisted by updateBaseline after each check-in) ────────
+  const hasBaseline = (baselineRow?.days_of_data ?? 0) >= 7
+
+  // ── Local: form-derived signals ───────────────────────────────────────────────
+  const morningFatigue =
+    fatigue === 5 ? 10 : fatigue === 4 ? 8 :
+    fatigue === 3 ? 5  : fatigue === 2 ? 3 : 1
+
   const dataSource =
-    (hrvMs != null || restingHrBpm != null) && baseline?.hasWearableBaseline
+    (hrvMs != null || restingHrBpm != null) && hasBaseline
       ? 'wearable'
       : (hrvMs != null || restingHrBpm != null)
       ? 'wearable_no_baseline'
       : 'self_report'
 
-  // Fatigue mapping
-  const morningFatigue =
-    fatigue === 5 ? 10 : fatigue === 4 ? 8 :
-    fatigue === 3 ? 5 : fatigue === 2 ? 3 : 1
-
-  // Load spike detection (Hulin et al. 2016)
-  const mileageChangePct =
-    loadVsNormal === 'more' && sessionsThisWeek >= 4 ? 35 :
-    loadVsNormal === 'more' && sessionsThisWeek >= 3 ? 22 :
-    loadVsNormal === 'more' ? 15 :
-    loadVsNormal === 'less' ? -15 : 0
-
-  const hardSessionsThisWeek =
-    loadVsNormal === 'more'
-      ? Math.ceil((sessionsThisWeek ?? 3) * 0.6)
-      : Math.ceil((sessionsThisWeek ?? 3) * 0.4)
-
   return {
-    sleepNightsBelowSix,
-    morningFatigue,
-    painScore: painScore ?? 0,
-    painTrend: painTrend ?? 'stable',
-    painAltersMovement: painAltersMovement ?? false,
-    hardSessionsThisWeek,
+    acwr,
     mileageChangePct,
-    acwr: null,
+    hardSessionsThisWeek,
+    backToBackHard,
+    sessionRpe,
+    rpeHighOnEasyDay,
     hrvVsBaselinePct,
     rhrVsBaselineBpm,
-    hasBaseline: baseline?.hasWearableBaseline ?? false,
+    sleepNightsBelowSix,
+    hasBaseline,
+    morningFatigue,
+    painScore:          painScore ?? 0,
+    painTrend:          painTrend ?? 'stable',
+    painAltersMovement: painAltersMovement ?? false,
     dataSource,
-    rawHrvMs: hrvMs,
-    rawRhrBpm: restingHrBpm,
-    rawSleepHours: sleepHours,
+    rawHrvMs:           hrvMs,
+    rawRhrBpm:          restingHrBpm,
+    rawSleepHours:      sleepHours,
   }
 }
