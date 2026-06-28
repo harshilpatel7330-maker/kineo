@@ -81,7 +81,7 @@ export default function CheckIn() {
         )
       if (athleteError) console.error('Failed to ensure athlete row:', athleteError)
 
-      const cumulativeLoad = await fetchCumulativeLoad()
+      const cumulativeLoad = await fetchCumulativeLoad(ATHLETE_ID)
 
       // Insert checkin first so updateBaseline/updateRecoveryMetrics include
       // today's wearable readings before mapToSignals queries those tables.

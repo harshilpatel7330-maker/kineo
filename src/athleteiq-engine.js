@@ -402,6 +402,17 @@ export function evaluate(signals) {
   }
 
   if (firedRules.length === 0) {
+    if (!signals.hasBaseline) {
+      return {
+        decision:   DECISIONS.MAINTAIN,
+        confidence: CONFIDENCE.LOW,
+        rulesFired: [],
+        reasons:    ['Insufficient baseline data — defaulting to MAINTAIN'],
+        action:     'Proceed with a moderate planned session. Establish 7 days of morning check-ins before load rules activate.',
+        watchFor:   'Log every morning check-in to build your personal baseline as quickly as possible.',
+        warnings:   ['No personal baseline established yet — HRV and RHR rules are disabled. Baseline forms after 7 days of logged data.'],
+      };
+    }
     return {
       decision:   DECISIONS.MAINTAIN,
       confidence: CONFIDENCE.MEDIUM,

@@ -1,4 +1,4 @@
-import { runScenarios } from './athleteiq-engine.js'
+import { runScenarios, evaluate } from './athleteiq-engine.js'
 
 // Mirror of the exported pure function in baselineCalculator.js — inline here
 // so this test file has no Supabase dependency and runs cleanly in Node.
@@ -236,5 +236,35 @@ const baselineIsolationTest = {
   pass: Math.abs(computedPct - (-38.5)) < 0.1,
 }
 
-const results = [...runScenarios(scenarios), baselineIsolationTest]
+// ── Cold-start regression test ────────────────────────────────────────────
+// This code path has broken twice. Lock it in: a brand-new athlete with zero
+// check-ins, zero training_sessions, and no baseline row must get the
+// cold-start message (MAINTAIN, LOW confidence) — not the generic
+// "nothing concerning, execute as planned" message.
+const COLD_START_SIGNALS = {
+  hasBaseline: false,
+  acwr: null, mileageChangePct: null,
+  hardSessionsThisWeek: null, backToBackHard: false,
+  sessionRpe: null, rpeHighOnEasyDay: false,
+  hrvVsBaselinePct: null, rhrVsBaselineBpm: null, sleepNightsBelowSix: null,
+  morningFatigue: 3,
+  painScore: 0, painTrend: 'stable', painAltersMovement: false,
+}
+const coldStartResult = evaluate(COLD_START_SIGNALS)
+const COLD_START_ACTION = 'Proceed with a moderate planned session. Establish 7 days of morning check-ins before load rules activate.'
+const GENERIC_ACTION    = 'Execute the training plan as written. No modifications required.'
+const coldStartTest = {
+  id:    'cold-start-no-baseline-no-flags',
+  label: 'Brand-new athlete: zero check-ins, zero sessions, no baseline — must show cold-start message not generic',
+  pass:
+    coldStartResult.decision    === 'MAINTAIN' &&
+    coldStartResult.confidence  === 'LOW'      &&
+    coldStartResult.action      === COLD_START_ACTION,
+  decision:   coldStartResult.decision,
+  confidence: coldStartResult.confidence,
+  action:     coldStartResult.action,
+  wrongActionWouldBe: GENERIC_ACTION,
+}
+
+const results = [...runScenarios(scenarios), baselineIsolationTest, coldStartTest]
 console.log(JSON.stringify(results, null, 2))

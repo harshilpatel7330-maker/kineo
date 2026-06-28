@@ -1,19 +1,16 @@
 import { supabase } from '../supabaseClient'
 
-import { getAthleteId } from '../utils/athleteId'
-const ATHLETE_ID = getAthleteId()
-
 function dateOffsetISO(baseDate, offsetDays) {
   const d = new Date(baseDate)
   d.setDate(d.getDate() + offsetDays)
   return d.toISOString().split('T')[0]
 }
 
-export async function calculateBaseline() {
+export async function calculateBaseline(athleteId) {
   const { data } = await supabase
     .from('checkins')
     .select('resting_hr_bpm, hrv_ms, sleep_hours, created_at')
-    .eq('athlete_id', ATHLETE_ID)
+    .eq('athlete_id', athleteId)
     .not('resting_hr_bpm', 'is', null)
     .order('created_at', { ascending: false })
     .limit(7)
@@ -48,7 +45,7 @@ export async function calculateBaseline() {
 }
 
 export async function updateBaseline(athleteId) {
-  const baseline = await calculateBaseline()
+  const baseline = await calculateBaseline(athleteId)
 
   if (!baseline.hasWearableBaseline) return baseline
 
@@ -154,11 +151,11 @@ export async function updateRecoveryMetrics(athleteId, { hrv_ms, resting_hr_bpm,
   }
 }
 
-export async function fetchCumulativeLoad() {
+export async function fetchCumulativeLoad(athleteId) {
   const { data } = await supabase
     .from('checkins')
     .select('fatigue, soreness, sleep_quality, created_at, sleep_hours')
-    .eq('athlete_id', ATHLETE_ID)
+    .eq('athlete_id', athleteId)
     .order('created_at', { ascending: false })
     .limit(28)
 
