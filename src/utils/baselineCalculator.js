@@ -165,14 +165,18 @@ export async function fetchCumulativeLoad(athleteId) {
   const week2 = data.slice(7, 14)
   const week3 = data.slice(14, 21)
 
-  const avgFatigue = (week) =>
-    week.reduce((sum, d) => sum + (d.fatigue ?? 3), 0) / week.length
+  // Returns null for weeks with fewer than 4 of 7 days logged, preventing
+  // NaN and avoiding giving too-thin partial weeks a real average.
+  const avgFatigue = (week) => {
+    if (week.length < 4) return null
+    return week.reduce((sum, d) => sum + (d.fatigue ?? 3), 0) / week.length
+  }
 
   const w1 = avgFatigue(week1)
   const w2 = avgFatigue(week2)
   const w3 = avgFatigue(week3)
 
-  const consecutiveHighWeeks = [w1, w2, w3].filter(w => w >= 3.5).length
+  const consecutiveHighWeeks = [w1, w2, w3].filter(w => w != null && w >= 3.5).length
 
   return {
     hasPattern: consecutiveHighWeeks >= 3,

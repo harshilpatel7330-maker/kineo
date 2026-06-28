@@ -42,6 +42,7 @@ export async function mapToSignals(athleteId, {
   const sessionRpe           = session?.rpe ?? null
   const rpeHighOnEasyDay     = session != null &&
     session.intensity_label === 'easy' && (session.rpe ?? 0) >= 7
+  const hasLoggedSessions    = session !== null
 
   // ── Recovery signals (persisted by updateRecoveryMetrics after each check-in) ──
   const hrvVsBaselinePct  = recovery?.hrv_vs_baseline_pct ?? null
@@ -70,6 +71,7 @@ export async function mapToSignals(athleteId, {
     backToBackHard,
     sessionRpe,
     rpeHighOnEasyDay,
+    hasLoggedSessions,
     hrvVsBaselinePct,
     rhrVsBaselineBpm,
     sleepNightsBelowSix,

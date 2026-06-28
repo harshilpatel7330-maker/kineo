@@ -1,4 +1,5 @@
 import { runScenarios, evaluate } from './athleteiq-engine.js'
+import { calcReadiness } from './utils/readiness.js'
 
 // Mirror of the exported pure function in baselineCalculator.js — inline here
 // so this test file has no Supabase dependency and runs cleanly in Node.
@@ -215,6 +216,46 @@ const scenarios = [
       hrvVsBaselinePct: 2,
     }
   },
+
+  // Fix 2: Mileage > 40% with no pain was a silent gap (old code capped at <= 40).
+  {
+    id: 'mileage-spike-above-40-no-pain',
+    label: 'Mileage +50% with zero pain: was silently missed, now correctly MODIFY',
+    expectedDecision: 'MODIFY',
+    signals: {
+      acwr: null, mileageChangePct: 50, painScore: 0, painTrend: 'stable',
+      hrvVsBaselinePct: null, rhrVsBaselineBpm: null, sleepNightsBelowSix: null,
+      hardSessionsThisWeek: null, backToBackHard: false, hasBaseline: false,
+    }
+  },
+
+  // Fix 3: hasLoggedSessions === false branch — baseline exists but no sessions
+  {
+    id: 'has-baseline-no-sessions',
+    label: 'Baseline established, hasLoggedSessions false: MAINTAIN (decision check; confidence tested inline)',
+    expectedDecision: 'MAINTAIN',
+    signals: {
+      acwr: null, mileageChangePct: null, hardSessionsThisWeek: null,
+      backToBackHard: false, sessionRpe: null, rpeHighOnEasyDay: false,
+      hrvVsBaselinePct: null, rhrVsBaselineBpm: null, sleepNightsBelowSix: null,
+      hasBaseline: true, hasLoggedSessions: false,
+      morningFatigue: 3, painScore: 0, painTrend: 'stable', painAltersMovement: false,
+    }
+  },
+
+  // Fix 3: all three cases covered — case 3: baseline + sessions + nothing fires
+  {
+    id: 'has-baseline-has-sessions-no-flags',
+    label: 'Baseline + sessions logged + nothing flags: original MAINTAIN/MEDIUM preserved',
+    expectedDecision: 'MAINTAIN',
+    signals: {
+      acwr: null, mileageChangePct: null, hardSessionsThisWeek: 1,
+      backToBackHard: false, sessionRpe: 5, rpeHighOnEasyDay: false,
+      hrvVsBaselinePct: null, rhrVsBaselineBpm: null, sleepNightsBelowSix: 0,
+      hasBaseline: true, hasLoggedSessions: true,
+      morningFatigue: 3, painScore: 0, painTrend: 'stable', painAltersMovement: false,
+    }
+  },
 ]
 
 // ── Baseline isolation test (no engine, pure math) ────────────────────────
@@ -266,5 +307,124 @@ const coldStartTest = {
   wrongActionWouldBe: GENERIC_ACTION,
 }
 
-const results = [...runScenarios(scenarios), baselineIsolationTest, coldStartTest]
+// ── hasLoggedSessions confidence tests (Fix 3) ───────────────────────────
+// The scenarios array above checks decision only; these check confidence + copy.
+const NO_SESSIONS_SIGNALS = {
+  acwr: null, mileageChangePct: null, hardSessionsThisWeek: null,
+  backToBackHard: false, sessionRpe: null, rpeHighOnEasyDay: false,
+  hrvVsBaselinePct: null, rhrVsBaselineBpm: null, sleepNightsBelowSix: null,
+  hasBaseline: true, hasLoggedSessions: false,
+  morningFatigue: 3, painScore: 0, painTrend: 'stable', painAltersMovement: false,
+}
+const noSessionsResult = evaluate(NO_SESSIONS_SIGNALS)
+const noSessionsTest = {
+  id:    'no-sessions-low-confidence',
+  label: 'hasBaseline + no sessions: MAINTAIN/LOW, not the generic MEDIUM message',
+  pass:
+    noSessionsResult.decision   === 'MAINTAIN' &&
+    noSessionsResult.confidence === 'LOW'      &&
+    noSessionsResult.action !== 'Execute the training plan as written. No modifications required.',
+  decision:   noSessionsResult.decision,
+  confidence: noSessionsResult.confidence,
+  action:     noSessionsResult.action,
+}
+
+const HAS_SESSIONS_NO_FLAGS_SIGNALS = {
+  acwr: null, mileageChangePct: null, hardSessionsThisWeek: 1,
+  backToBackHard: false, sessionRpe: 5, rpeHighOnEasyDay: false,
+  hrvVsBaselinePct: null, rhrVsBaselineBpm: null, sleepNightsBelowSix: 0,
+  hasBaseline: true, hasLoggedSessions: true,
+  morningFatigue: 3, painScore: 0, painTrend: 'stable', painAltersMovement: false,
+}
+const hasSessionsNoFlagsResult = evaluate(HAS_SESSIONS_NO_FLAGS_SIGNALS)
+const GENERIC_NO_FLAGS_ACTION  = 'Execute the training plan as written. No modifications required.'
+const hasSessionsNoFlagsTest = {
+  id:    'sessions-exist-no-flags-medium-confidence',
+  label: 'Baseline + sessions + nothing flags: original MAINTAIN/MEDIUM message preserved',
+  pass:
+    hasSessionsNoFlagsResult.decision   === 'MAINTAIN' &&
+    hasSessionsNoFlagsResult.confidence === 'MEDIUM'   &&
+    hasSessionsNoFlagsResult.action     === GENERIC_NO_FLAGS_ACTION,
+  decision:   hasSessionsNoFlagsResult.decision,
+  confidence: hasSessionsNoFlagsResult.confidence,
+}
+
+// ── Cumulative fatigue pattern tests (Fix 4) ─────────────────────────────
+// Mirrors the fixed avgFatigue logic from baselineCalculator.js:
+// returns null for weeks with < 4 entries so NaN never propagates.
+function _avgFatigue(week) {
+  if (week.length < 4) return null
+  return week.reduce((sum, d) => sum + (d.fatigue ?? 3), 0) / week.length
+}
+function _computeHasPattern(data) {
+  const w1 = _avgFatigue(data.slice(0, 7))
+  const w2 = _avgFatigue(data.slice(7, 14))
+  const w3 = _avgFatigue(data.slice(14, 21))
+  return [w1, w2, w3].filter(w => w != null && w >= 3.5).length >= 3
+}
+const HIGH_ROW = { fatigue: 5 }
+
+const cumFatigueA = {
+  id:    'cumulative-fatigue-10-checkins',
+  label: '10 check-ins all fatigue=5: hasPattern false — weeks 2 and 3 have < 4 entries',
+  pass:  _computeHasPattern(Array(10).fill(HIGH_ROW)) === false,
+}
+const cumFatigueB = {
+  id:    'cumulative-fatigue-21-checkins',
+  label: '21 check-ins all fatigue=5, full weeks: hasPattern true',
+  pass:  _computeHasPattern(Array(21).fill(HIGH_ROW)) === true,
+}
+const cumFatigueC = {
+  id:    'cumulative-fatigue-18-checkins-week3-has-4',
+  label: '18 check-ins (week3 = 4 entries, meets 4-day minimum): hasPattern true',
+  pass:  _computeHasPattern(Array(18).fill(HIGH_ROW)) === true,
+}
+
+// ── ACWR 1.3 boundary (Fix 1) ─────────────────────────────────────────────
+// Stronger than the decision-only check: also asserts P5-ready-to-push is
+// absent from rulesFired. If the strict-bound fix ever regresses, both
+// P3 and P5 would fire and this test fails even though the decision stays
+// MODIFY (because severity escalation masks the contradiction).
+const ACWR_BOUNDARY_SIGNALS = {
+  acwr: 1.3, mileageChangePct: 0, painScore: 0, painTrend: 'stable',
+  hrvVsBaselinePct: 2, sleepNightsBelowSix: 0, hardSessionsThisWeek: 1,
+  backToBackHard: false, hasBaseline: true,
+}
+const acwrBoundaryResult = evaluate(ACWR_BOUNDARY_SIGNALS)
+const acwrBoundaryTest = {
+  id:    'acwr-boundary-1.3-only-modify',
+  label: 'ACWR exactly 1.3: decision MODIFY AND P5-ready-to-push absent from rulesFired',
+  pass:
+    acwrBoundaryResult.decision === 'MODIFY' &&
+    !acwrBoundaryResult.rulesFired.some(r => r.id === 'P5-ready-to-push'),
+  decision:   acwrBoundaryResult.decision,
+  rulesFired: acwrBoundaryResult.rulesFired.map(r => r.id),
+}
+
+// ── calcReadiness missing-field (Fix 5) ──────────────────────────────────
+// Asserts the shared function returns a real number when a field is
+// undefined — defaults (fatigue=3) must kick in, not propagate NaN.
+// Dashboard, History, and Recommendation all import this shared function;
+// grep confirms no local redefinition exists in any of them.
+const PARTIAL_CHECKIN = { sleep: 4, stress: 2, fatigue: undefined, soreness: 3 }
+const readinessMissingFieldResult = calcReadiness(PARTIAL_CHECKIN)
+const readinessMissingFieldTest = {
+  id:    'calc-readiness-missing-field',
+  label: 'calcReadiness({ sleep:4, stress:2, fatigue:undefined, soreness:3 }) is a real number, not NaN',
+  pass:  typeof readinessMissingFieldResult === 'number' && !isNaN(readinessMissingFieldResult),
+  result: readinessMissingFieldResult,
+}
+
+const results = [
+  ...runScenarios(scenarios),
+  baselineIsolationTest,
+  coldStartTest,
+  noSessionsTest,
+  hasSessionsNoFlagsTest,
+  cumFatigueA,
+  cumFatigueB,
+  cumFatigueC,
+  acwrBoundaryTest,
+  readinessMissingFieldTest,
+]
 console.log(JSON.stringify(results, null, 2))

@@ -137,12 +137,11 @@ const RULES = [
     name: 'Moderate load spike',
     evaluate({ acwr, mileageChangePct }) {
       const acwrFlag = acwr != null && acwr >= 1.3 && acwr <= 1.5;
-      const mileageFlag = mileageChangePct != null &&
-                          mileageChangePct >= 20 && mileageChangePct <= 40;
+      const mileageFlag = mileageChangePct != null && mileageChangePct >= 20;
       if (!acwrFlag && !mileageFlag) return null;
       const reasons = [];
       if (acwrFlag) reasons.push(`ACWR ${acwr.toFixed(2)} in caution zone (1.3–1.5)`);
-      if (mileageFlag) reasons.push(`mileage up ${Math.round(mileageChangePct)}% — spike zone (20–40%)`);
+      if (mileageFlag) reasons.push(`mileage up ${Math.round(mileageChangePct)}% — exceeds 20% spike threshold`);
       return this._fire(reasons.join('; '));
     },
     action: 'Reduce remaining weekly volume by 15–20%. Remove any interval sessions. Keep remaining runs easy.',
@@ -344,7 +343,7 @@ const RULES = [
     name: 'Ready to push',
     evaluate({ acwr, hrvVsBaselinePct, painScore, sleepNightsBelowSix, hasBaseline }) {
       if (!hasBaseline) return null;
-      const acwrGreen = acwr != null && acwr >= 0.8 && acwr <= 1.3;
+      const acwrGreen = acwr != null && acwr >= 0.8 && acwr < 1.3;
       const hrvGreen  = hrvVsBaselinePct != null && hrvVsBaselinePct >= -5;
       const painGreen = painScore === 0 || painScore == null;
       const sleepGreen = sleepNightsBelowSix === 0 || sleepNightsBelowSix == null;
@@ -401,7 +400,17 @@ export function evaluate(signals) {
     if (result) firedRules.push(result);
   }
 
+  // Compute missing-signal context before the early-return branches so
+  // every path can surface data-quality context. Training-derived signals
+  // are included so their absence is visible in warnings when rules fire.
+  const keySignals = [
+    'acwr', 'mileageChangePct', 'hardSessionsThisWeek', 'backToBackHard', 'sessionRpe',
+    'hrvVsBaselinePct', 'rhrVsBaselineBpm', 'sleepNightsBelowSix', 'painScore',
+  ];
+  const missing = keySignals.filter(k => signals[k] == null);
+
   if (firedRules.length === 0) {
+    // Case 1: No wearable baseline yet — cold-start message.
     if (!signals.hasBaseline) {
       return {
         decision:   DECISIONS.MAINTAIN,
@@ -413,6 +422,21 @@ export function evaluate(signals) {
         warnings:   ['No personal baseline established yet — HRV and RHR rules are disabled. Baseline forms after 7 days of logged data.'],
       };
     }
+    // Case 2: Baseline established but zero training sessions logged.
+    // The engine genuinely cannot see load, ACWR, or back-to-back patterns
+    // — this is limited data, not a confirmed clean bill of health.
+    if (signals.hasLoggedSessions === false) {
+      return {
+        decision:   DECISIONS.MAINTAIN,
+        confidence: CONFIDENCE.LOW,
+        rulesFired: [],
+        reasons:    ['No training sessions logged yet — recommendation has limited basis'],
+        action:     'Proceed with your planned session, but log it afterward so future recommendations can account for your actual training load.',
+        watchFor:   'This message means the engine lacks training data, not that everything is confirmed fine.',
+        warnings:   ['No training session history found — load-based rules (ACWR, mileage, back-to-back hard) are all inactive until you log sessions.'],
+      };
+    }
+    // Case 3: Baseline + session history both present, nothing triggered.
     return {
       decision:   DECISIONS.MAINTAIN,
       confidence: CONFIDENCE.MEDIUM,
@@ -432,8 +456,7 @@ export function evaluate(signals) {
   }
 
   // HIGH confidence requires a non-supporting P1/P2 rule — HRV/RHR
-  // supporting signals alone (even though they're tagged P3 now) should
-  // never independently produce HIGH confidence.
+  // supporting signals alone should never independently produce HIGH confidence.
   const hasNonSupportingHighPriority = firedRules.some(
     r => (r.priority === 'P1' || r.priority === 'P2') && !r.isSupportingSignal
   );
@@ -445,33 +468,14 @@ export function evaluate(signals) {
     confidence = CONFIDENCE.LOW;
   }
 
-  // Missing data should only lower confidence when the decision itself
-  // is ambiguous — not automatically, just because optional fields like
-  // resting heart rate weren't filled in. A clearly-good or clearly-bad
-  // day is still clear even with some fields blank.
-  const keySignals = ['acwr', 'hrvVsBaselinePct', 'rhrVsBaselineBpm', 'sleepNightsBelowSix', 'painScore'];
-  const missing = keySignals.filter(k => signals[k] == null);
-
-  // "Ambiguous" means: no rule fired decisively (MAINTAIN by default with
-  // nothing driving it) AND a meaningful amount of data is missing.
-  // A clear PUSH, MODIFY, or RECOVER driven by real signals (pain, load,
-  // sleep) stays at whatever confidence it already earned, regardless of
-  // which optional wearable fields are blank.
-  const decisionIsDefaultFallback = firedRules.length === 0;
-  const significantDataMissing = missing.length >= 3;
-
-  if (decisionIsDefaultFallback && significantDataMissing) {
-    confidence = CONFIDENCE.LOW;
-    warnings.push(`Missing ${missing.length} signal(s) (${missing.join(', ')}) — limited data to base this on.`);
-  } else if (missing.length > 0) {
+  if (missing.length > 0) {
     warnings.push(`${missing.length} signal(s) not entered (${missing.join(', ')}) — add these for more precise recommendations.`);
   }
 
   const drivingRule = firedRules.find(r => r.decision === finalDecision);
 
   // Order reasons: load/sleep/pain signals first (most evidence-based for
-  // injury risk per the research hierarchy), HRV/RHR supporting signals
-  // last (recovery context, not independent injury predictors).
+  // injury risk), HRV/RHR supporting signals last (recovery context).
   const sortedRules = [...firedRules].sort((a, b) => {
     const aSupporting = a.isSupportingSignal ? 1 : 0;
     const bSupporting = b.isSupportingSignal ? 1 : 0;

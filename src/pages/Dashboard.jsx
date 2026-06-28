@@ -9,6 +9,7 @@ import {
   YAxis,
 } from 'recharts'
 import { supabase } from '../supabaseClient'
+import { calcReadiness } from '../utils/readiness'
 import { mapRecommendation } from '../utils/recommendationMapper'
 import './Dashboard.css'
 
@@ -46,11 +47,6 @@ function getGreeting() {
   if (hour < 12) return 'Good morning'
   if (hour < 17) return 'Good afternoon'
   return 'Good evening'
-}
-
-function calcReadiness({ sleep, stress, fatigue, soreness }) {
-  const score = ((6 - fatigue) + (6 - soreness) + sleep + (6 - stress)) / 16 * 100
-  return Math.round(score)
 }
 
 function barColor(score, hasEntry) {

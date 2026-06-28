@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import { calcReadiness } from '../utils/readiness'
 import { mapRecommendation } from '../utils/recommendationMapper'
 import './History.css'
 
@@ -13,13 +14,6 @@ function formatDate(iso) {
     month: 'long',
     day: 'numeric',
   })
-}
-
-function calcReadiness(checkin) {
-  if (!checkin) return null
-  const { sleep, stress, fatigue, soreness } = checkin
-  const score = ((6 - fatigue) + (6 - soreness) + sleep + (6 - stress)) / 16 * 100
-  return Math.round(score)
 }
 
 function HistoryCard({ row, expanded, onToggle }) {

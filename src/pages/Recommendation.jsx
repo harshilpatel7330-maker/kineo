@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { calcReadiness } from '../utils/readiness'
 import { translateReasons } from '../utils/reasonTranslator'
 import './Recommendation.css'
 
@@ -14,12 +15,6 @@ function formatDate() {
   return new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric'
   })
-}
-
-function calcReadiness(checkin) {
-  if (!checkin) return null
-  const { sleep = 3, fatigue = 3, soreness = 3, stress = 3 } = checkin
-  return Math.round(((6 - fatigue) + (6 - soreness) + sleep + (6 - stress)) / 16 * 100)
 }
 
 function readinessTier(readiness) {
