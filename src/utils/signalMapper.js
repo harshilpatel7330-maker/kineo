@@ -1,12 +1,19 @@
 import { supabase } from '../supabaseClient'
+import { computedPainTrend, combinePainTrend } from './painTrendCalculator.js'
+import { computeHrvLoadMismatch } from './loadCalculator.js'
 
 export async function mapToSignals(athleteId, {
   sleep, stress, fatigue, soreness,
   painScore, painTrend, painAltersMovement,
   restingHrBpm, hrvMs, sleepHours,
 }) {
-  // Query all three tables concurrently — null data means no rows yet, not an error
-  const [trainingResult, recoveryResult, baselineResult] = await Promise.all([
+  // 14-day lookback window for computed pain trend
+  const painWindowStart = new Date()
+  painWindowStart.setDate(painWindowStart.getDate() - 14)
+  const fourteenDaysAgo = painWindowStart.toISOString().split('T')[0]
+
+  // Query all tables concurrently — null data means no rows yet, not an error
+  const [trainingResult, recoveryResult, baselineResult, painLogsResult, hrvLoadMismatch] = await Promise.all([
     supabase
       .from('training_sessions')
       .select('rpe, intensity_label, back_to_back_hard, acwr, mileage_change_pct, hard_sessions_this_week')
@@ -28,6 +35,14 @@ export async function mapToSignals(athleteId, {
       .order('calculated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from('pain_logs')
+      .select('pain_score, date')
+      .eq('athlete_id', athleteId)
+      .gte('date', fourteenDaysAgo)
+      .order('date', { ascending: false })
+      .limit(5),
+    computeHrvLoadMismatch(athleteId),
   ])
 
   const session     = trainingResult.data    // null when no sessions logged yet
@@ -64,6 +79,11 @@ export async function mapToSignals(athleteId, {
       ? 'wearable_no_baseline'
       : 'self_report'
 
+  // Combine self-reported pain trend with objective trend from pain_logs
+  const painHistory    = painLogsResult.data ?? []
+  const computedTrend  = computedPainTrend(painHistory)
+  const finalPainTrend = combinePainTrend(painTrend, computedTrend)
+
   return {
     acwr,
     mileageChangePct,
@@ -78,8 +98,9 @@ export async function mapToSignals(athleteId, {
     hasBaseline,
     morningFatigue,
     painScore:          painScore ?? 0,
-    painTrend:          painTrend ?? 'stable',
+    painTrend:          finalPainTrend,
     painAltersMovement: painAltersMovement ?? false,
+    hrvLoadMismatch,
     dataSource,
     rawHrvMs:           hrvMs,
     rawRhrBpm:          restingHrBpm,

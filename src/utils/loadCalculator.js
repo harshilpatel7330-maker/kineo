@@ -99,3 +99,66 @@ export async function computeAndPersistLoadMetrics(athleteId, sessionId, session
 
   return { acwr, mileageChangePct, hardSessionsThisWeek, backToBackHard }
 }
+
+// Pure computation — no I/O. Takes already-joined sessions sorted descending
+// by date, each shaped as { date, session_load, acwr, hrv_vs_baseline_pct }.
+// Returns { daysHrvBelow, daysAvailable, loadFlatOrRising } or null when
+// fewer than 3 sessions have a non-null hrv_vs_baseline_pct.
+export function calculateHrvLoadMismatch(joinedSessions) {
+  const withHrv = joinedSessions.filter(j => j.hrv_vs_baseline_pct != null)
+  if (withHrv.length < 3) return null
+
+  const daysHrvBelow = withHrv.filter(j => j.hrv_vs_baseline_pct < -5).length
+
+  const mostRecentAcwr = joinedSessions[0]?.acwr
+  let loadFlatOrRising = mostRecentAcwr != null && mostRecentAcwr >= 0.85
+
+  if (!loadFlatOrRising) {
+    const recentTwo  = joinedSessions.slice(0, 2)
+    const priorThree = joinedSessions.slice(2, 5)
+    if (recentTwo.length === 2 && priorThree.length >= 1) {
+      const avgRecent = (recentTwo[0].session_load + recentTwo[1].session_load) / 2
+      const avgPrior  = priorThree.reduce((s, d) => s + d.session_load, 0) / priorThree.length
+      if (avgPrior > 0) {
+        loadFlatOrRising = (avgRecent / avgPrior) >= 0.9
+      }
+    }
+  }
+
+  return { daysHrvBelow, daysAvailable: withHrv.length, loadFlatOrRising }
+}
+
+// Thin I/O wrapper — fetches sessions and recovery_metrics, joins in memory,
+// then delegates all computation to calculateHrvLoadMismatch.
+export async function computeHrvLoadMismatch(athleteId) {
+  const { data: sessions } = await supabase
+    .from('training_sessions')
+    .select('date, duration_min, rpe, acwr')
+    .eq('athlete_id', athleteId)
+    .order('date', { ascending: false })
+    .limit(5)
+
+  if (!sessions || sessions.length < 3) return null
+
+  const sessionDates = sessions.map(s => s.date)
+
+  const { data: recovery } = await supabase
+    .from('recovery_metrics')
+    .select('date, hrv_vs_baseline_pct')
+    .eq('athlete_id', athleteId)
+    .in('date', sessionDates)
+
+  const recoveryByDate = {}
+  for (const r of (recovery ?? [])) {
+    recoveryByDate[r.date] = r.hrv_vs_baseline_pct
+  }
+
+  const joined = sessions.map(s => ({
+    date:                s.date,
+    session_load:        (s.duration_min ?? 0) * (s.rpe ?? 0),
+    acwr:                s.acwr,
+    hrv_vs_baseline_pct: recoveryByDate[s.date] ?? null,
+  }))
+
+  return calculateHrvLoadMismatch(joined)
+}

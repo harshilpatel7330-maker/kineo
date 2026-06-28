@@ -1,5 +1,6 @@
 import { runScenarios, evaluate } from './athleteiq-engine.js'
 import { calcReadiness } from './utils/readiness.js'
+import { computedPainTrend, combinePainTrend } from './utils/painTrendCalculator.js'
 
 // Mirror of the exported pure function in baselineCalculator.js — inline here
 // so this test file has no Supabase dependency and runs cleanly in Node.
@@ -7,6 +8,27 @@ function computeHrvVsBaselinePct(todayHrv, priorReadings) {
   if (todayHrv == null || !priorReadings.length) return null
   const avg = priorReadings.reduce((s, v) => s + v, 0) / priorReadings.length
   return Math.round(((todayHrv - avg) / avg) * 1000) / 10
+}
+
+// Mirror of calculateHrvLoadMismatch from loadCalculator.js — inline because
+// loadCalculator.js imports supabaseClient.js which uses import.meta.env
+// (Vite-only), causing a TypeError when loaded in Node.js directly.
+function calculateHrvLoadMismatch(joinedSessions) {
+  const withHrv = joinedSessions.filter(j => j.hrv_vs_baseline_pct != null)
+  if (withHrv.length < 3) return null
+  const daysHrvBelow = withHrv.filter(j => j.hrv_vs_baseline_pct < -5).length
+  const mostRecentAcwr = joinedSessions[0]?.acwr
+  let loadFlatOrRising = mostRecentAcwr != null && mostRecentAcwr >= 0.85
+  if (!loadFlatOrRising) {
+    const recentTwo  = joinedSessions.slice(0, 2)
+    const priorThree = joinedSessions.slice(2, 5)
+    if (recentTwo.length === 2 && priorThree.length >= 1) {
+      const avgRecent = (recentTwo[0].session_load + recentTwo[1].session_load) / 2
+      const avgPrior  = priorThree.reduce((s, d) => s + d.session_load, 0) / priorThree.length
+      if (avgPrior > 0) loadFlatOrRising = (avgRecent / avgPrior) >= 0.9
+    }
+  }
+  return { daysHrvBelow, daysAvailable: withHrv.length, loadFlatOrRising }
 }
 
 const scenarios = [
@@ -415,6 +437,232 @@ const readinessMissingFieldTest = {
   result: readinessMissingFieldResult,
 }
 
+// ── Part A: Computed pain trend tests ─────────────────────────────────────
+
+// Neutral signals used as the non-pain baseline for engine call in A1
+const PAIN_NEUTRAL = {
+  acwr: null, mileageChangePct: null, hardSessionsThisWeek: null,
+  backToBackHard: false, sessionRpe: null, rpeHighOnEasyDay: false,
+  hrvVsBaselinePct: null, rhrVsBaselineBpm: null, sleepNightsBelowSix: null,
+  hasBaseline: true, hasLoggedSessions: true, morningFatigue: 3,
+  painAltersMovement: false,
+}
+
+// A1: self='stable', logs [4,3,2,2] — delta=(3.5)-(2.0)=1.5 >= 1.0 → worsening
+// Combined: worsening > stable → 'worsening'. Engine with painScore=3 +
+// painTrend='worsening' → P1-pain-critical fires (any pain+worsening=RECOVER).
+const A1_HISTORY = [
+  { pain_score: 4, date: '2026-06-27' },
+  { pain_score: 3, date: '2026-06-26' },
+  { pain_score: 2, date: '2026-06-25' },
+  { pain_score: 2, date: '2026-06-24' },
+]
+const A1_computed = computedPainTrend(A1_HISTORY)
+const A1_combined = combinePainTrend('stable', A1_computed)
+const A1_engine   = evaluate({ ...PAIN_NEUTRAL, painScore: 3, painTrend: A1_combined })
+const ptA1 = {
+  id:    'pain-trend-computed-worsening-overrides-stable',
+  label: 'self=stable, logs [4,3,2,2] delta=1.5: computed=worsening, combined=worsening, P1-pain-critical fires (RECOVER)',
+  pass:
+    A1_computed === 'worsening' &&
+    A1_combined === 'worsening' &&
+    A1_engine.decision === 'RECOVER' &&
+    A1_engine.rulesFired.some(r => r.id === 'P1-pain-critical'),
+  computed: A1_computed, combined: A1_combined,
+  decision: A1_engine.decision,
+  rulesFired: A1_engine.rulesFired.map(r => r.id),
+}
+
+// A2: self='worsening', flat logs [3,3,3,3] — delta=0 → computed='stable'
+// combined: self rank 2 (worsening) >= computed rank 1 (stable) → 'worsening' preserved
+const A2_HISTORY = [
+  { pain_score: 3, date: '2026-06-27' },
+  { pain_score: 3, date: '2026-06-26' },
+  { pain_score: 3, date: '2026-06-25' },
+  { pain_score: 3, date: '2026-06-24' },
+]
+const A2_computed = computedPainTrend(A2_HISTORY)
+const A2_combined = combinePainTrend('worsening', A2_computed)
+const ptA2 = {
+  id:    'pain-trend-self-worsening-wins-over-flat',
+  label: 'self=worsening, flat logs (delta=0): computed=stable, self-report wins, final=worsening',
+  pass:  A2_computed === 'stable' && A2_combined === 'worsening',
+  computed: A2_computed, combined: A2_combined,
+}
+
+// A3: Only 1 pain_log entry — computedPainTrend returns null (< 2 needed)
+// combinePainTrend(null) returns self-report unchanged
+const A3_HISTORY = [{ pain_score: 3, date: '2026-06-27' }]
+const A3_computed = computedPainTrend(A3_HISTORY)
+const A3_combined = combinePainTrend('improving', A3_computed)
+const ptA3 = {
+  id:    'pain-trend-single-entry-returns-null',
+  label: 'Only 1 pain_log entry: computed=null, self-report=improving returned unchanged',
+  pass:  A3_computed === null && A3_combined === 'improving',
+  computed: A3_computed, combined: A3_combined,
+}
+
+// A4: self='stable', logs show small drop — delta=-1.0 (doesn't clear -2.0 bar)
+// computed stays 'stable', not 'improving' — confirms higher bar for improving
+const A4_HISTORY = [
+  { pain_score: 2, date: '2026-06-27' },
+  { pain_score: 2, date: '2026-06-26' },
+  { pain_score: 3, date: '2026-06-25' },
+  { pain_score: 3, date: '2026-06-24' },
+]
+// delta = avg(2,2) - avg(3,3) = 2.0 - 3.0 = -1.0: inside (-2.0, 1.0) → 'stable'
+const A4_computed = computedPainTrend(A4_HISTORY)
+const A4_combined = combinePainTrend('stable', A4_computed)
+const ptA4 = {
+  id:    'pain-trend-small-drop-stays-stable',
+  label: 'delta=-1.0 (< -2.0 bar for improving): computed=stable, final=stable — improving bar holds',
+  pass:  A4_computed === 'stable' && A4_combined === 'stable',
+  computed: A4_computed, combined: A4_combined,
+}
+
+// A5: self='improving', logs also show real drop — delta=-2.5 clears the -2.0 bar
+// computed='improving', combined rank tie (self=0, computed=0) → 'improving' returned
+const A5_HISTORY = [
+  { pain_score: 1, date: '2026-06-27' },
+  { pain_score: 1, date: '2026-06-26' },
+  { pain_score: 3, date: '2026-06-25' },
+  { pain_score: 4, date: '2026-06-24' },
+]
+// delta = avg(1,1) - avg(3,4) = 1.0 - 3.5 = -2.5 → 'improving'
+const A5_computed = computedPainTrend(A5_HISTORY)
+const A5_combined = combinePainTrend('improving', A5_computed)
+const ptA5 = {
+  id:    'pain-trend-real-drop-reaches-improving',
+  label: 'self=improving, delta=-2.5 clears bar: computed=improving, final=improving confirmed reachable',
+  pass:  A5_computed === 'improving' && A5_combined === 'improving',
+  computed: A5_computed, combined: A5_combined,
+}
+
+// ── Part B: HRV-load mismatch rule tests ─────────────────────────────────
+// Tests use pre-computed hrvLoadMismatch objects (no DB) — the rule reads
+// the signal object, so we can test the evaluate() path directly.
+
+const HRV_MISMATCH_BASE = {
+  hasBaseline: true, hasLoggedSessions: true,
+  acwr: 1.0, mileageChangePct: null, hardSessionsThisWeek: 2,
+  backToBackHard: false, sessionRpe: 6, rpeHighOnEasyDay: false,
+  hrvVsBaselinePct: -7, rhrVsBaselineBpm: 3, sleepNightsBelowSix: 0,
+  morningFatigue: 3, painScore: 0, painTrend: 'stable', painAltersMovement: false,
+}
+
+// B1: 3 of 4 HRV days below -5, load flat (ACWR 1.0 ≥ 0.85) → rule fires, MODIFY
+const B1_result = evaluate({
+  ...HRV_MISMATCH_BASE,
+  hrvLoadMismatch: { daysHrvBelow: 3, daysAvailable: 4, loadFlatOrRising: true },
+})
+const ptB1 = {
+  id:    'hrv-load-mismatch-fires-modify',
+  label: 'daysHrvBelow=3, loadFlatOrRising=true: P3-hrv-load-mismatch fires, decision MODIFY',
+  pass:
+    B1_result.decision === 'MODIFY' &&
+    B1_result.rulesFired.some(r => r.id === 'P3-hrv-load-mismatch'),
+  decision:   B1_result.decision,
+  rulesFired: B1_result.rulesFired.map(r => r.id),
+}
+
+// B2: same HRV pattern, loadFlatOrRising=false (athlete already backing off)
+// → rule must NOT fire — do not pile on someone already reducing load
+const B2_result = evaluate({
+  ...HRV_MISMATCH_BASE,
+  hrvLoadMismatch: { daysHrvBelow: 3, daysAvailable: 4, loadFlatOrRising: false },
+})
+const ptB2 = {
+  id:    'hrv-load-mismatch-skips-when-load-dropping',
+  label: 'daysHrvBelow=3 but loadFlatOrRising=false: rule absent — athlete already backing off',
+  pass:  !B2_result.rulesFired.some(r => r.id === 'P3-hrv-load-mismatch'),
+  decision:   B2_result.decision,
+  rulesFired: B2_result.rulesFired.map(r => r.id),
+}
+
+// B3: hrvLoadMismatch=null (< 3 sessions have HRV data) → rule silently skips, no error
+const B3_result = evaluate({ ...HRV_MISMATCH_BASE, hrvLoadMismatch: null })
+const ptB3 = {
+  id:    'hrv-load-mismatch-null-no-error',
+  label: 'hrvLoadMismatch=null (thin data): rule absent, no error thrown',
+  pass:  !B3_result.rulesFired.some(r => r.id === 'P3-hrv-load-mismatch'),
+  decision:   B3_result.decision,
+  rulesFired: B3_result.rulesFired.map(r => r.id),
+}
+
+// B4: both P3-combined-recovery and P3-hrv-load-mismatch fire simultaneously
+// P3-combined-recovery fires when: hrvVsBaselinePct < -15 AND rhrVsBaselineBpm > 7
+// Both return MODIFY → decision stays MODIFY, both in rulesFired
+const B4_result = evaluate({
+  ...HRV_MISMATCH_BASE,
+  hrvVsBaselinePct: -20, rhrVsBaselineBpm: 9,
+  hrvLoadMismatch: { daysHrvBelow: 3, daysAvailable: 4, loadFlatOrRising: true },
+})
+const ptB4 = {
+  id:    'hrv-load-mismatch-coexists-with-combined-recovery',
+  label: 'P3-combined-recovery + P3-hrv-load-mismatch both fire: both in rulesFired, MODIFY decision, no conflict',
+  pass:
+    B4_result.decision === 'MODIFY' &&
+    B4_result.rulesFired.some(r => r.id === 'P3-combined-recovery') &&
+    B4_result.rulesFired.some(r => r.id === 'P3-hrv-load-mismatch') &&
+    B4_result.reasons.length === 2,
+  decision:   B4_result.decision,
+  rulesFired: B4_result.rulesFired.map(r => r.id),
+  reasonCount: B4_result.reasons.length,
+}
+
+// ── calculateHrvLoadMismatch pure-function tests (Fix B refactor) ─────────
+// Uses the exact joined-session shape the wrapper produces after its DB join.
+
+// B_a: "already backing off" — loads [150,100,400,440,350], ACWR 0.62.
+// ACWR < 0.85, ratio = 125/396.67 = 0.315 < 0.90 → loadFlatOrRising false.
+const B_A_SESSIONS = [
+  { date: '2026-06-27', session_load: 150, acwr: 0.62, hrv_vs_baseline_pct: -8  },
+  { date: '2026-06-26', session_load: 100, acwr: null,  hrv_vs_baseline_pct: -10 },
+  { date: '2026-06-24', session_load: 400, acwr: null,  hrv_vs_baseline_pct: -7  },
+  { date: '2026-06-23', session_load: 440, acwr: null,  hrv_vs_baseline_pct: -6  },
+  { date: '2026-06-22', session_load: 350, acwr: null,  hrv_vs_baseline_pct: -3  },
+]
+const B_A_result = calculateHrvLoadMismatch(B_A_SESSIONS)
+const ptB_a = {
+  id:    'hrv-load-mismatch-pure-backing-off',
+  label: 'loads [150,100,400,440,350] ACWR=0.62: loadFlatOrRising must be false (athlete already reducing load)',
+  pass:  B_A_result !== null && B_A_result.loadFlatOrRising === false,
+  result: B_A_result,
+}
+
+// B_b: "sustained load, HRV struggling" — loads flat/rising [380,410,400,390,350],
+// ACWR 1.0 ≥ 0.85 → loadFlatOrRising true immediately. 3 of 5 HRV below -5.
+const B_B_SESSIONS = [
+  { date: '2026-06-27', session_load: 380, acwr: 1.0,  hrv_vs_baseline_pct: -8  },
+  { date: '2026-06-26', session_load: 410, acwr: null,  hrv_vs_baseline_pct: -12 },
+  { date: '2026-06-24', session_load: 400, acwr: null,  hrv_vs_baseline_pct: -9  },
+  { date: '2026-06-23', session_load: 390, acwr: null,  hrv_vs_baseline_pct: -3  },
+  { date: '2026-06-22', session_load: 350, acwr: null,  hrv_vs_baseline_pct: -2  },
+]
+const B_B_result = calculateHrvLoadMismatch(B_B_SESSIONS)
+const ptB_b = {
+  id:    'hrv-load-mismatch-pure-sustained-load',
+  label: 'loads flat/rising [380,410,400,390,350] ACWR=1.0: loadFlatOrRising true, daysHrvBelow >= 3',
+  pass:  B_B_result !== null && B_B_result.loadFlatOrRising === true && B_B_result.daysHrvBelow >= 3,
+  result: B_B_result,
+}
+
+// B_c: fewer than 3 sessions have valid HRV → function returns null.
+const B_C_SESSIONS = [
+  { date: '2026-06-27', session_load: 380, acwr: 1.0,  hrv_vs_baseline_pct: -8  },
+  { date: '2026-06-26', session_load: 410, acwr: null,  hrv_vs_baseline_pct: null },
+  { date: '2026-06-24', session_load: 400, acwr: null,  hrv_vs_baseline_pct: null },
+  { date: '2026-06-23', session_load: 390, acwr: null,  hrv_vs_baseline_pct: -3  },
+  { date: '2026-06-22', session_load: 350, acwr: null,  hrv_vs_baseline_pct: null },
+]
+const B_C_result = calculateHrvLoadMismatch(B_C_SESSIONS)
+const ptB_c = {
+  id:    'hrv-load-mismatch-pure-thin-hrv-data',
+  label: 'Only 2 of 5 sessions have HRV data: function returns null (insufficient data)',
+  pass:  B_C_result === null,
+  result: B_C_result,
+}
+
 const results = [
   ...runScenarios(scenarios),
   baselineIsolationTest,
@@ -426,5 +674,17 @@ const results = [
   cumFatigueC,
   acwrBoundaryTest,
   readinessMissingFieldTest,
+  ptA1,
+  ptA2,
+  ptA3,
+  ptA4,
+  ptA5,
+  ptB1,
+  ptB2,
+  ptB3,
+  ptB4,
+  ptB_a,
+  ptB_b,
+  ptB_c,
 ]
 console.log(JSON.stringify(results, null, 2))

@@ -247,6 +247,30 @@ const RULES = [
     },
   },
 
+  {
+    id: 'P3-hrv-load-mismatch',
+    priority: 'P3',
+    name: 'Recovery degrading under sustained load',
+    evaluate({ hrvLoadMismatch, hasBaseline }) {
+      if (!hasBaseline) return null;
+      if (!hrvLoadMismatch) return null;
+      const { daysHrvBelow, loadFlatOrRising } = hrvLoadMismatch;
+      if (daysHrvBelow < 3 || !loadFlatOrRising) return null;
+      return this._fire(
+        `HRV below baseline on ${daysHrvBelow} of recent training days while load has not decreased — recovery is not keeping pace with workload`
+      );
+    },
+    action: 'Schedule a 5-7 day deload: reduce volume and remove hard/interval sessions. Do not add load this week regardless of how today specifically feels.',
+    watchFor: 'If HRV does not recover toward baseline despite reduced load, consult a sports medicine professional — this pattern can precede overtraining syndrome.',
+    isSupportingSignal: true,
+    _fire(reason) {
+      return { id: this.id, priority: this.priority, name: this.name,
+               reason, decision: DECISIONS.MODIFY,
+               action: this.action, watchFor: this.watchFor,
+               isSupportingSignal: true };
+    },
+  },
+
   // ── P4: Mild flags — MAINTAIN ──────────────────────────────────────────────
 
   {
@@ -301,7 +325,7 @@ const RULES = [
     id: 'P4-caution-load',
     priority: 'P4',
     name: 'Caution mileage increase',
-    evaluate({ mileageChangePct, acwr }) {
+    evaluate({ mileageChangePct }) {
       const mileageCaution = mileageChangePct != null &&
                              mileageChangePct >= 10 && mileageChangePct < 20;
       if (!mileageCaution) return null;
