@@ -82,7 +82,7 @@ export default function LogSession() {
 
       await computeAndPersistLoadMetrics(ATHLETE_ID, row.id, today)
 
-      navigate('/dashboard')
+      navigate('/sessions', { state: { justLogged: true } })
     } catch (err) {
       console.error('Log session error:', err)
     } finally {

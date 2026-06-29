@@ -17,6 +17,14 @@ export const DECISIONS = Object.freeze({
   RECOVER:  'RECOVER',
 });
 
+// Mileage-change thresholds used by load rules and the sessions chart.
+// Single source of truth — do not hardcode these elsewhere.
+export const MILEAGE_BANDS = Object.freeze({
+  CAUTION:  10,   // >= 10% → watch closely (MAINTAIN)
+  MODIFY:   20,   // >= 20% → reduce (MODIFY)
+  CRITICAL: 40,   // >  40% → full deload (RECOVER)
+});
+
 export const CONFIDENCE = Object.freeze({
   HIGH:   'HIGH',
   MEDIUM: 'MEDIUM',
@@ -70,7 +78,7 @@ const RULES = [
       if (acwr == null && mileageChangePct == null) return null;
       const acwrCritical = acwr != null && acwr > 1.5;
       const mileageCritical = mileageChangePct != null &&
-                              mileageChangePct > 40 &&
+                              mileageChangePct > MILEAGE_BANDS.CRITICAL &&
                               painScore != null && painScore > 0;
       if (!acwrCritical && !mileageCritical) return null;
       const reasons = [];
@@ -137,11 +145,11 @@ const RULES = [
     name: 'Moderate load spike',
     evaluate({ acwr, mileageChangePct }) {
       const acwrFlag = acwr != null && acwr >= 1.3 && acwr <= 1.5;
-      const mileageFlag = mileageChangePct != null && mileageChangePct >= 20;
+      const mileageFlag = mileageChangePct != null && mileageChangePct >= MILEAGE_BANDS.MODIFY;
       if (!acwrFlag && !mileageFlag) return null;
       const reasons = [];
       if (acwrFlag) reasons.push(`ACWR ${acwr.toFixed(2)} in caution zone (1.3–1.5)`);
-      if (mileageFlag) reasons.push(`mileage up ${Math.round(mileageChangePct)}% — exceeds 20% spike threshold`);
+      if (mileageFlag) reasons.push(`mileage up ${Math.round(mileageChangePct)}% — exceeds ${MILEAGE_BANDS.MODIFY}% spike threshold`);
       return this._fire(reasons.join('; '));
     },
     action: 'Reduce remaining weekly volume by 15–20%. Remove any interval sessions. Keep remaining runs easy.',
@@ -327,10 +335,11 @@ const RULES = [
     name: 'Caution mileage increase',
     evaluate({ mileageChangePct }) {
       const mileageCaution = mileageChangePct != null &&
-                             mileageChangePct >= 10 && mileageChangePct < 20;
+                             mileageChangePct >= MILEAGE_BANDS.CAUTION &&
+                             mileageChangePct < MILEAGE_BANDS.MODIFY;
       if (!mileageCaution) return null;
       return this._fire(
-        `mileage up ${Math.round(mileageChangePct)}% — acceptable but monitor (10–20% range)`
+        `mileage up ${Math.round(mileageChangePct)}% — acceptable but monitor (${MILEAGE_BANDS.CAUTION}–${MILEAGE_BANDS.MODIFY}% range)`
       );
     },
     action: 'Keep the session as planned. Do not add further volume or intensity this week.',

@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom'
 
 const tabs = [
-  { to: '/dashboard', label: 'Home', emoji: '🏠' },
-  { to: '/checkin', label: 'Check In', emoji: '✅' },
-  { to: '/history', label: 'History', emoji: '📊' },
+  { to: '/dashboard', label: 'Home',     emoji: '🏠' },
+  { to: '/checkin',   label: 'Check In', emoji: '✅' },
+  { to: '/sessions',  label: 'Sessions', emoji: '🏋️' },
+  { to: '/history',   label: 'History',  emoji: '📊' },
 ]
 
 export default function BottomNav() {

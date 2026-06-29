@@ -283,6 +283,14 @@ export default function Dashboard() {
           </span>
         )}
       </div>
+
+      <div className="dashboard__device-id">
+        <p className="dashboard__device-id-label">Device ID</p>
+        <p className="dashboard__device-id-value">{ATHLETE_ID}</p>
+        <p className="dashboard__device-id-hint">
+          Save this. If you lose access to this device or clear your browser, send this code so your data can be recovered.
+        </p>
+      </div>
     </div>
   )
 }
