@@ -30,6 +30,42 @@
   color: var(--text-h);
 }
 
+.checkin-nudge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--accent-bg);
+  border-bottom: 1px solid var(--accent-border);
+}
+
+.checkin-nudge__text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+  line-height: 1.4;
+}
+
+.checkin-nudge__btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.checkin-nudge__btn:active {
+  opacity: 0.8;
+}
+
 .bottom-nav {
   position: fixed;
   bottom: 0;

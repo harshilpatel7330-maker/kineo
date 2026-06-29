@@ -81,7 +81,8 @@ export function computeHrvVsBaselinePct(todayHrv, priorReadings) {
 }
 
 export async function updateRecoveryMetrics(athleteId, { hrv_ms, resting_hr_bpm, fatigue }) {
-  const today = new Date().toISOString().split('T')[0]
+  const _d = new Date()
+  const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`
 
   // Query checkins strictly before today so today's own reading is excluded
   // from the baseline used to assess today. Self-inclusive averaging biases

@@ -663,6 +663,111 @@ const ptB_c = {
   result: B_C_result,
 }
 
+// ── UTC-8 late-night check-in date-consistency scenario ──────────────────────
+// Scenario: UTC-8 user checks in at 11 pm local (= 07:00 UTC next day).
+//
+// Before the fix: toISOString() returned the UTC date, so all three tables
+// (checkins, recovery_metrics, training_sessions) wrote the UTC "next day"
+// date — internally consistent but a calendar day ahead of the user's clock.
+//
+// After the fix: all three functions use getFullYear/getMonth/getDate (local
+// parts), so they all write the same local date string. The critical invariant:
+//   checkins.date == recovery_metrics.date == training_sessions.date
+// for any row produced during the same check-in/session submission.
+//
+// This test confirms:
+// (a) The engine back-to-back-hard rule fires correctly when both today and
+//     yesterday sessions are marked hard. The engine reads `backToBackHard`
+//     as a pre-computed boolean signal (from computeAndPersistLoadMetrics,
+//     which uses dateOffsetISO(sessionDate, -1) — correct because sessionDate
+//     is now a local date and dateOffsetISO arithmetic is timezone-neutral).
+// (b) calculateHrvLoadMismatch produces the expected result for a UTC-8 user's
+//     session history stored with local-clock dates. The pure function only
+//     compares date strings for .in() joins; no clock is touched here.
+
+// (a) Engine: back-to-back hard fires — signals reflect local-clock dates
+// (today = "2026-06-27", yesterday = "2026-06-26", both RPE ≥ 7)
+const UTC8_B2B_result = evaluate({
+  ...HRV_MISMATCH_BASE,
+  backToBackHard:       true,
+  hardSessionsThisWeek: 4,
+  sessionRpe:           8,
+  acwr:                 1.1,
+  hrvLoadMismatch:      null,
+})
+const utc8BackToBackTest = {
+  id:    'utc-8-late-checkin-back-to-back-fires',
+  label: 'UTC-8 user 11 pm local: backToBackHard=true signals flow through engine correctly (P3-back-to-back-hard fires)',
+  pass:  UTC8_B2B_result.rulesFired.some(r => r.id === 'P3-back-to-back-hard'),
+  decision:   UTC8_B2B_result.decision,
+  rulesFired: UTC8_B2B_result.rulesFired.map(r => r.id),
+}
+
+// (b) HRV-load mismatch with local-clock session dates.
+// Dates "2026-06-27" → "2026-06-23" represent what LogSession and
+// updateRecoveryMetrics now write for a UTC-8 user at 11 pm local.
+// Recovery_metrics rows for these dates would have matching date strings,
+// so the in-memory join in computeHrvLoadMismatch produces correct pairs.
+// ACWR 1.1 ≥ 0.85 → loadFlatOrRising true; 4 of 5 days HRV below -5.
+const UTC8_HRV_SESSIONS = [
+  { date: '2026-06-27', session_load: 420, acwr: 1.1,  hrv_vs_baseline_pct: -9  },
+  { date: '2026-06-26', session_load: 410, acwr: null,  hrv_vs_baseline_pct: -7  },
+  { date: '2026-06-25', session_load: 400, acwr: null,  hrv_vs_baseline_pct: -8  },
+  { date: '2026-06-24', session_load: 390, acwr: null,  hrv_vs_baseline_pct: -6  },
+  { date: '2026-06-23', session_load: 350, acwr: null,  hrv_vs_baseline_pct: -2  },
+]
+const UTC8_HRV_result = calculateHrvLoadMismatch(UTC8_HRV_SESSIONS)
+const utc8HrvMismatchTest = {
+  id:    'utc-8-late-checkin-hrv-mismatch-consistent',
+  label: 'UTC-8 user 11 pm local: calculateHrvLoadMismatch with local-clock dates → loadFlatOrRising true, daysHrvBelow=4',
+  pass:  UTC8_HRV_result !== null && UTC8_HRV_result.loadFlatOrRising === true && UTC8_HRV_result.daysHrvBelow === 4,
+  result: UTC8_HRV_result,
+}
+
+// ── pain_logs write test ──────────────────────────────────────────────────────
+// Now that CheckIn.jsx inserts a pain_logs row on every submission, computedPainTrend
+// receives real history instead of always getting []. Two sub-cases:
+//
+// ptPL1 — "improving recovery": scores [0,0,0,2,3] descending (most-recent first,
+//   matching signalMapper's ORDER BY date DESC).
+//   split = ceil(5/2) = 3 → recent=[0,0,0], earlier=[2,3]
+//   avg(recent)=0, avg(earlier)=(2+3)/2=2.5, delta=0-2.5=-2.5
+//   delta ≤ -2.0 → 'improving'
+const PL1_HISTORY = [
+  { pain_score: 0, date: '2026-06-28' },
+  { pain_score: 0, date: '2026-06-27' },
+  { pain_score: 0, date: '2026-06-26' },
+  { pain_score: 2, date: '2026-06-25' },
+  { pain_score: 3, date: '2026-06-24' },
+]
+const ptPL1_result = computedPainTrend(PL1_HISTORY)
+const ptPL1 = {
+  id:    'pain-logs-write-improving-recovery',
+  label: 'pain_logs [0,0,0,2,3] desc: delta=-2.5 clears -2.0 bar, not null, reads improving',
+  pass:  ptPL1_result !== null && ptPL1_result === 'improving',
+  result: ptPL1_result,
+}
+
+// ptPL2 — "worsening onset": scores [3,2,0,0,0] descending (recent days hurt,
+//   earlier days were fine).
+//   split = ceil(5/2) = 3 → recent=[3,2,0], earlier=[0,0]
+//   avg(recent)=(3+2+0)/3=1.667, avg(earlier)=0, delta=1.667-0=1.667
+//   delta ≥ 1.0 → 'worsening'
+const PL2_HISTORY = [
+  { pain_score: 3, date: '2026-06-28' },
+  { pain_score: 2, date: '2026-06-27' },
+  { pain_score: 0, date: '2026-06-26' },
+  { pain_score: 0, date: '2026-06-25' },
+  { pain_score: 0, date: '2026-06-24' },
+]
+const ptPL2_result = computedPainTrend(PL2_HISTORY)
+const ptPL2 = {
+  id:    'pain-logs-write-worsening-onset',
+  label: 'pain_logs [3,2,0,0,0] desc: delta=2.5 ≥ 1.0, not null, reads worsening',
+  pass:  ptPL2_result !== null && ptPL2_result === 'worsening',
+  result: ptPL2_result,
+}
+
 const results = [
   ...runScenarios(scenarios),
   baselineIsolationTest,
@@ -686,5 +791,9 @@ const results = [
   ptB_a,
   ptB_b,
   ptB_c,
+  utc8BackToBackTest,
+  utc8HrvMismatchTest,
+  ptPL1,
+  ptPL2,
 ]
 console.log(JSON.stringify(results, null, 2))

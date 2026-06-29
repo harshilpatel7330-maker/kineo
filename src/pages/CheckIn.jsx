@@ -85,10 +85,15 @@ export default function CheckIn() {
 
       // Insert checkin first so updateBaseline/updateRecoveryMetrics include
       // today's wearable readings before mapToSignals queries those tables.
+      // Use local clock parts (not toISOString) so "today" matches the user's
+      // date even near midnight in non-UTC timezones.
+      const _d = new Date()
+      const localToday = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`
       const { error: checkinError } = await supabase
         .from('checkins')
         .insert({
           athlete_id:     ATHLETE_ID,
+          date:           localToday,
           sleep_quality:  sliders.sleep,
           stress:         sliders.stress,
           fatigue:        sliders.fatigue,
@@ -99,6 +104,20 @@ export default function CheckIn() {
           sleep_hours:    sleepHours ? parseFloat(sleepHours) : null,
         })
       if (checkinError) console.error('Failed to save check-in:', checkinError)
+
+      // Write a pain_logs row on every check-in (score=0 on pain-free days)
+      // so computedPainTrend has a real history to compare against, not just
+      // days the user explicitly reported pain.
+      const { error: painLogError } = await supabase
+        .from('pain_logs')
+        .insert({
+          athlete_id:          ATHLETE_ID,
+          date:                localToday,
+          pain_score:          hasPain ? painScore : 0,
+          trend:               hasPain ? painTrend : 'stable',
+          pain_alters_movement: hasPain ? painAltersMovement : false,
+        })
+      if (painLogError) console.error('Failed to save pain log:', painLogError)
 
       // Compare today's HRV/RHR against the pre-today baseline (excludes
       // today's own row, which was just inserted above).

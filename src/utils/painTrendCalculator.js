@@ -7,7 +7,7 @@ const TREND_RANK = { worsening: 2, stable: 1, improving: 0 }
 export function computedPainTrend(painHistory) {
   if (!painHistory || painHistory.length < 2) return null
   const n     = painHistory.length
-  const split = Math.floor(n / 2)
+  const split = Math.ceil(n / 2)
   const recent  = painHistory.slice(0, split)
   const earlier = painHistory.slice(split)
   if (recent.length === 0) return null

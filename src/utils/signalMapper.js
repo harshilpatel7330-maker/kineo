@@ -7,10 +7,11 @@ export async function mapToSignals(athleteId, {
   painScore, painTrend, painAltersMovement,
   restingHrBpm, hrvMs, sleepHours,
 }) {
-  // 14-day lookback window for computed pain trend
-  const painWindowStart = new Date()
-  painWindowStart.setDate(painWindowStart.getDate() - 14)
-  const fourteenDaysAgo = painWindowStart.toISOString().split('T')[0]
+  // 14-day lookback window for computed pain trend — local clock so the window
+  // edge matches the local-clock date CheckIn.jsx writes to pain_logs on every submission.
+  const _pw = new Date()
+  _pw.setDate(_pw.getDate() - 14)
+  const fourteenDaysAgo = `${_pw.getFullYear()}-${String(_pw.getMonth() + 1).padStart(2, '0')}-${String(_pw.getDate()).padStart(2, '0')}`
 
   // Query all tables concurrently — null data means no rows yet, not an error
   const [trainingResult, recoveryResult, baselineResult, painLogsResult, hrvLoadMismatch] = await Promise.all([

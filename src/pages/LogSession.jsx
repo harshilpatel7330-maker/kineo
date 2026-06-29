@@ -31,8 +31,9 @@ const RPE_LABEL = [
 ]
 const RPE_EMOJI = ['', '😌', '😌', '🙂', '🙂', '😐', '😓', '😓', '😤', '😤', '🤯']
 
-function todayISO() {
-  return new Date().toISOString().split('T')[0]
+function todayLocal() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 export default function LogSession() {
@@ -57,7 +58,7 @@ export default function LogSession() {
     }
     setLoading(true)
     try {
-      const today = todayISO()
+      const today = todayLocal()
 
       const { data: row, error } = await supabase
         .from('training_sessions')
