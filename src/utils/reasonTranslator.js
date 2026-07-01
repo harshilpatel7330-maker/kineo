@@ -97,6 +97,21 @@ const TRANSLATIONS = [
       translate: () =>
         `Nothing concerning stood out today, so stick with your planned session.`
     },
+    {
+      match: /Pain pattern.*consistent with bone stress injury/,
+      translate: () =>
+        `Your pain pattern is consistent with a bone stress injury. Stop all impact activity and seek medical evaluation within 48 hours — this is not a drill.`
+    },
+    {
+      match: /Pain location and training history consistent with (.+?) \(high confidence\)/,
+      translate: (m) =>
+        `Your pain location and training history suggest this may be ${m[1]}. See the injury guide below for a specific protocol.`
+    },
+    {
+      match: /Pain location may be consistent with (.+?) \(moderate confidence\)/,
+      translate: (m) =>
+        `Your pain location may be consistent with ${m[1]}. Monitor closely and consider the protocol below if pain persists.`
+    },
   ]
   
   export function translateReason(reason) {

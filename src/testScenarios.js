@@ -1,6 +1,7 @@
 import { runScenarios, evaluate } from './athleteiq-engine.js'
 import { calcReadiness } from './utils/readiness.js'
 import { computedPainTrend, combinePainTrend } from './utils/painTrendCalculator.js'
+import { classifyInjury } from './utils/injuryClassifier.js'
 
 // Mirror of the exported pure function in baselineCalculator.js — inline here
 // so this test file has no Supabase dependency and runs cleanly in Node.
@@ -768,6 +769,64 @@ const ptPL2 = {
   result: ptPL2_result,
 }
 
+// ── classifyInjury tests ──────────────────────────────────────────────────────
+
+function injuryTest(id, label, signals, expectedId, expectedConf) {
+  const result = classifyInjury(signals)
+  const passId   = result?.injuryId === expectedId || (result === null && expectedId === null)
+  const passConf = expectedConf == null || result?.confidence === expectedConf
+  return { id, label, pass: passId && passConf, result }
+}
+
+// CI1: No location → always null
+const CI1 = injuryTest('ci-no-location', 'No location → null',
+  { painLocation: null, painScore: 3, painTrend: 'stable' }, null)
+
+// CI2: Location set but score 0 → null (no pain)
+const CI2 = injuryTest('ci-score-zero', 'Location set, score 0 → null',
+  { painLocation: 'shin', painScore: 0, painTrend: 'stable' }, null)
+
+// CI3: Shin + score 7 → stress-fracture-risk (high)
+const CI3 = injuryTest('ci-stress-fracture-high-score', 'Shin score 7 → stress-fracture-risk high',
+  { painLocation: 'shin', painScore: 7, painTrend: 'stable', mileageChangePct: 10, acwr: 1.0, workoutType: 'run', hardSessionsThisWeek: 3 },
+  'stress-fracture-risk', 'high')
+
+// CI4: Shin + score 4 + worsening → stress-fracture-risk
+const CI4 = injuryTest('ci-stress-fracture-worsening', 'Shin score 4 worsening → stress-fracture-risk',
+  { painLocation: 'shin', painScore: 4, painTrend: 'worsening', mileageChangePct: 25, acwr: 1.35, workoutType: 'run', hardSessionsThisWeek: 4 },
+  'stress-fracture-risk', 'high')
+
+// CI5: Shin + score 3 + run + high ACWR → shin-splints high
+const CI5 = injuryTest('ci-shin-splints-high', 'Shin score 3 + run + ACWR 1.4 → shin-splints high',
+  { painLocation: 'shin', painScore: 3, painTrend: 'stable', mileageChangePct: null, acwr: 1.4, workoutType: 'run', hardSessionsThisWeek: 2 },
+  'shin-splints', 'high')
+
+// CI6: Shin + score 2, strength, no load spike → shin-splints moderate
+const CI6 = injuryTest('ci-shin-splints-moderate', 'Shin score 2 + strength + no spike → shin-splints moderate',
+  { painLocation: 'shin', painScore: 2, painTrend: 'stable', mileageChangePct: 5, acwr: 1.0, workoutType: 'strength', hardSessionsThisWeek: 1 },
+  'shin-splints', 'moderate')
+
+// CI7: Shin + score 1 with a load spike → shin-splints low
+// (stress-fracture check passes since score < 4; HIGH check fails since score < 2; LOW fires)
+const CI7 = injuryTest('ci-shin-splints-low', 'Shin score 1 → shin-splints low',
+  { painLocation: 'shin', painScore: 1, painTrend: 'stable', mileageChangePct: 30, acwr: 1.4, workoutType: 'run', hardSessionsThisWeek: 3 },
+  'shin-splints', 'low')
+
+// CI8: Heel + score 3 + run → plantar-fasciitis high
+const CI8 = injuryTest('ci-plantar-fasciitis-high', 'Heel score 3 + run → plantar-fasciitis high',
+  { painLocation: 'heel', painScore: 3, painTrend: 'stable', mileageChangePct: null, acwr: 1.1, workoutType: 'run', hardSessionsThisWeek: 2 },
+  'plantar-fasciitis', 'high')
+
+// CI9: Outer knee + score 3 + run + high load → it-band high
+const CI9 = injuryTest('ci-it-band-high', 'Outer knee score 3 + run + ACWR 1.3 → it-band high',
+  { painLocation: 'knee-outer', painScore: 3, painTrend: 'stable', mileageChangePct: 20, acwr: 1.3, workoutType: 'run', hardSessionsThisWeek: 3 },
+  'it-band', 'high')
+
+// CI10: Other location + score 4 → unclassified low
+const CI10 = injuryTest('ci-unclassified', 'Other location score 4 → unclassified low',
+  { painLocation: 'other', painScore: 4, painTrend: 'stable', mileageChangePct: null, acwr: null, workoutType: null, hardSessionsThisWeek: null },
+  'unclassified', 'low')
+
 const results = [
   ...runScenarios(scenarios),
   baselineIsolationTest,
@@ -795,5 +854,6 @@ const results = [
   utc8HrvMismatchTest,
   ptPL1,
   ptPL2,
+  CI1, CI2, CI3, CI4, CI5, CI6, CI7, CI8, CI9, CI10,
 ]
 console.log(JSON.stringify(results, null, 2))

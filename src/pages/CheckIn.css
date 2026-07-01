@@ -321,6 +321,13 @@
   color: white;
 }
 
+.check-in__field-error {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: #EF4444;
+  font-weight: 500;
+}
+
 /* Submit */
 .check-in__submit {
   width: 100%;

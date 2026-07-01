@@ -1,12 +1,14 @@
 /**
  * AthleteIQ Rule Engine
- * Pure function — no side effects, no dependencies.
+ * Pure function — no side effects, no Supabase/browser dependencies.
  * Works in Node.js, React Native, or any browser bundle.
  *
  * Usage:
  *   import { evaluate } from './athleteiq-engine.js';
  *   const result = evaluate(signals);
  */
+
+import { PROTOCOLS } from './utils/injuryProtocols.js'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -419,6 +421,74 @@ const RULES = [
     },
   },
 
+  // ── Injury classification rules ────────────────────────────────────────────
+  // These rules consume `signals.injury` set by the classifyInjury() call in
+  // signalMapper.js and drive the injury protocol card in Recommendation.jsx.
+
+  {
+    id: 'P1-stress-fracture-risk',
+    priority: 'P1',
+    name: 'Bone stress / stress fracture risk',
+    evaluate({ injury }) {
+      if (!injury || injury.injuryId !== 'stress-fracture-risk') return null;
+      return this._fire(
+        `Pain pattern at shin/heel consistent with bone stress injury — ${injury.confidenceReason}`,
+        injury
+      );
+    },
+    _fire(reason, injury) {
+      const proto = PROTOCOLS['stress-fracture-risk'];
+      return { id: this.id, priority: this.priority, name: this.name,
+               reason, decision: DECISIONS.RECOVER,
+               action: proto.immediateActions[0],
+               watchFor: proto.escalationCriteria,
+               injury };
+    },
+  },
+
+  {
+    id: 'P2-injury-pattern-high',
+    priority: 'P2',
+    name: 'Injury pattern — high confidence',
+    evaluate({ injury }) {
+      if (!injury || injury.confidence !== 'high') return null;
+      if (injury.injuryId === 'stress-fracture-risk') return null;
+      return this._fire(
+        `Pain location and training history consistent with ${injury.name} (high confidence) — ${injury.confidenceReason}`,
+        injury
+      );
+    },
+    _fire(reason, injury) {
+      const proto = PROTOCOLS[injury.injuryId];
+      return { id: this.id, priority: this.priority, name: this.name,
+               reason, decision: DECISIONS.MODIFY,
+               action: proto ? proto.immediateActions[0] : 'Reduce load and avoid aggravating movements. See the injury protocol below.',
+               watchFor: proto ? proto.escalationCriteria : 'Monitor closely — escalate if pain score rises.',
+               injury };
+    },
+  },
+
+  {
+    id: 'P3-injury-pattern-moderate',
+    priority: 'P3',
+    name: 'Injury pattern — possible',
+    evaluate({ injury }) {
+      if (!injury || injury.confidence !== 'moderate') return null;
+      return this._fire(
+        `Pain location may be consistent with ${injury.name} (moderate confidence) — ${injury.confidenceReason}`,
+        injury
+      );
+    },
+    _fire(reason, injury) {
+      const proto = PROTOCOLS[injury.injuryId];
+      return { id: this.id, priority: this.priority, name: this.name,
+               reason, decision: DECISIONS.MODIFY,
+               action: proto ? proto.immediateActions[0] : 'Monitor closely. See the injury protocol below if pain persists or worsens.',
+               watchFor: proto ? proto.escalationCriteria : 'Escalate if pain score rises above 5 or trend becomes worsening.',
+               injury };
+    },
+  },
+
 ];
 
 // ─── Core evaluator ───────────────────────────────────────────────────────────
@@ -518,8 +588,8 @@ export function evaluate(signals) {
   return {
     decision:   finalDecision,
     confidence,
-    rulesFired: sortedRules.map(({ id, priority, name, reason, decision }) =>
-                  ({ id, priority, name, reason, decision })),
+    rulesFired: sortedRules.map(({ id, priority, name, reason, decision, injury }) =>
+                  ({ id, priority, name, reason, decision, injury: injury ?? null })),
     reasons:    sortedRules.map(r => r.reason),
     action:     drivingRule.action,
     watchFor:   drivingRule.watchFor,

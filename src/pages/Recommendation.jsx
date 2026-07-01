@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { calcReadiness } from '../utils/readiness'
 import { translateReasons } from '../utils/reasonTranslator'
+import { PROTOCOLS } from '../utils/injuryProtocols'
 import './Recommendation.css'
 
 const DECISION_MAP = {
@@ -77,6 +78,13 @@ export default function Recommendation() {
   const tier = readiness !== null ? readinessTier(readiness) : null
   const dataSource = signals?.dataSource ?? 'self_report'
 
+  const INJURY_RULE_IDS = ['P1-stress-fracture-risk', 'P2-injury-pattern-high', 'P3-injury-pattern-moderate']
+  const injuryRule = result.rulesFired?.find(r => INJURY_RULE_IDS.includes(r.id))
+  const injury = injuryRule?.injury ?? null
+  const protocol = injury ? PROTOCOLS[injury.injuryId] : null
+  const isUrgent = injuryRule?.id === 'P1-stress-fracture-risk'
+  const confidenceBadge = isUrgent ? 'URGENT' : injury?.confidence === 'high' ? 'HIGH' : 'POSSIBLE'
+
   return (
     <div className="recommendation">
       <div className="recommendation__header">
@@ -149,6 +157,37 @@ export default function Recommendation() {
           </div>
         )}
       </div>
+
+      {/* Injury protocol card */}
+      {injury && protocol && (
+        <div className={`recommendation__card recommendation__injury-card${isUrgent ? ' recommendation__injury-card--urgent' : ''}`}>
+          <div className="recommendation__injury-header">
+            <h3 className="recommendation__card-title" style={{ margin: 0 }}>
+              {isUrgent ? '🚨' : '⚠️'} {injury.name}
+            </h3>
+            <span className={`recommendation__injury-badge${isUrgent ? ' recommendation__injury-badge--urgent' : ''}`}>
+              {confidenceBadge}
+            </span>
+          </div>
+          <p className="recommendation__injury-desc">{protocol.description.split('.')[0]}.</p>
+          <div className="recommendation__injury-actions">
+            <p className="recommendation__injury-actions-label">Immediate actions</p>
+            <ol className="recommendation__injury-list">
+              {protocol.immediateActions.slice(0, 2).map((a, i) => (
+                <li key={i}>{a}</li>
+              ))}
+            </ol>
+          </div>
+          <div className="recommendation__injury-footer">
+            <Link to={`/injury/${injury.injuryId}`} className="recommendation__injury-link">
+              See full protocol →
+            </Link>
+            <Link to="/injury-history" className="recommendation__injury-history-link">
+              View injury history
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Readiness score */}
       {readiness !== null && (

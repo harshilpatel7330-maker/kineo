@@ -1,6 +1,7 @@
 import { supabase } from '../supabaseClient'
 import { computedPainTrend, combinePainTrend } from './painTrendCalculator.js'
 import { computeHrvLoadMismatch } from './loadCalculator.js'
+import { classifyInjury } from './injuryClassifier.js'
 
 export async function mapToSignals(athleteId, {
   sleep, stress, fatigue, soreness,
@@ -17,7 +18,7 @@ export async function mapToSignals(athleteId, {
   const [trainingResult, recoveryResult, baselineResult, painLogsResult, hrvLoadMismatch] = await Promise.all([
     supabase
       .from('training_sessions')
-      .select('rpe, intensity_label, back_to_back_hard, acwr, mileage_change_pct, hard_sessions_this_week')
+      .select('rpe, intensity_label, back_to_back_hard, acwr, mileage_change_pct, hard_sessions_this_week, workout_type')
       .eq('athlete_id', athleteId)
       .order('date', { ascending: false })
       .limit(1)
@@ -38,7 +39,7 @@ export async function mapToSignals(athleteId, {
       .maybeSingle(),
     supabase
       .from('pain_logs')
-      .select('pain_score, date')
+      .select('pain_score, date, location')
       .eq('athlete_id', athleteId)
       .gte('date', fourteenDaysAgo)
       .order('date', { ascending: false })
@@ -56,6 +57,7 @@ export async function mapToSignals(athleteId, {
   const hardSessionsThisWeek = session?.hard_sessions_this_week ?? null
   const backToBackHard       = session?.back_to_back_hard ?? false
   const sessionRpe           = session?.rpe ?? null
+  const workoutType          = session?.workout_type ?? null
   const rpeHighOnEasyDay     = session != null &&
     session.intensity_label === 'easy' && (session.rpe ?? 0) >= 7
   const hasLoggedSessions    = session !== null
@@ -84,6 +86,18 @@ export async function mapToSignals(athleteId, {
   const painHistory    = painLogsResult.data ?? []
   const computedTrend  = computedPainTrend(painHistory)
   const finalPainTrend = combinePainTrend(painTrend, computedTrend)
+  const painLocation   = painLogsResult.data?.[0]?.location ?? null
+
+  const resolvedPainScore = painScore ?? 0
+  const injury = classifyInjury({
+    painLocation,
+    painScore:           resolvedPainScore,
+    painTrend:           finalPainTrend,
+    mileageChangePct,
+    acwr,
+    workoutType,
+    hardSessionsThisWeek,
+  })
 
   return {
     acwr,
@@ -91,6 +105,7 @@ export async function mapToSignals(athleteId, {
     hardSessionsThisWeek,
     backToBackHard,
     sessionRpe,
+    workoutType,
     rpeHighOnEasyDay,
     hasLoggedSessions,
     hrvVsBaselinePct,
@@ -98,9 +113,11 @@ export async function mapToSignals(athleteId, {
     sleepNightsBelowSix,
     hasBaseline,
     morningFatigue,
-    painScore:          painScore ?? 0,
+    painScore:          resolvedPainScore,
     painTrend:          finalPainTrend,
+    painLocation,
     painAltersMovement: painAltersMovement ?? false,
+    injury,
     hrvLoadMismatch,
     dataSource,
     rawHrvMs:           hrvMs,

@@ -4,9 +4,9 @@ import BottomNav from './BottomNav'
 import { supabase } from '../supabaseClient'
 import { getAthleteId } from '../utils/athleteId'
 
-const HIDDEN_NAV_ROUTES    = ['/onboarding', '/recommendation']
-// Banner is also suppressed on /checkin (already going there) and /seed (dev page)
-const HIDDEN_BANNER_ROUTES = ['/onboarding', '/checkin', '/recommendation', '/seed']
+const HIDDEN_NAV_ROUTES    = ['/onboarding', '/recommendation', '/admin']
+// Banner suppressed on /checkin (already going there), /seed and /admin (dev pages)
+const HIDDEN_BANNER_ROUTES = ['/onboarding', '/checkin', '/recommendation', '/seed', '/admin']
 
 export default function Layout() {
   const { pathname } = useLocation()

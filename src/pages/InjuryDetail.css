@@ -1,0 +1,132 @@
+.injury-detail {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+  box-sizing: border-box;
+}
+
+.injury-detail--not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60svh;
+  gap: 16px;
+}
+
+.injury-detail__not-found-text {
+  font-size: 15px;
+  color: var(--text);
+}
+
+.injury-detail__back-btn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 20px;
+  display: block;
+}
+
+.injury-detail__title {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-h);
+  margin: 0 0 8px;
+  line-height: 1.2;
+}
+
+.injury-detail__disclaimer {
+  font-size: 11px;
+  color: var(--text);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.injury-detail__section {
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  background: var(--accent-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.injury-detail__section--escalation {
+  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.injury-detail__section-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  margin: 0 0 12px;
+}
+
+.injury-detail__description {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-h);
+  margin: 0;
+}
+
+.injury-detail__list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.injury-detail__list--ordered {
+  list-style-type: decimal;
+}
+
+.injury-detail__list li {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-h);
+}
+
+.injury-detail__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.injury-detail__timeline-row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.injury-detail__timeline-day {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.injury-detail__timeline-instruction {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-h);
+}
+
+.injury-detail__escalation {
+  font-size: 14px;
+  line-height: 1.55;
+  color: #ef4444;
+  margin: 0;
+  font-weight: 500;
+}

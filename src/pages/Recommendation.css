@@ -344,3 +344,91 @@
   padding: 6px 8px;
   border-radius: 6px;
 }
+
+/* Injury protocol card */
+.recommendation__injury-card {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.recommendation__injury-card--urgent {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.recommendation__injury-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.recommendation__injury-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 99px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+  white-space: nowrap;
+}
+
+.recommendation__injury-badge--urgent {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+.recommendation__injury-desc {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-h);
+  margin: 0 0 14px;
+}
+
+.recommendation__injury-actions-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  margin: 0 0 6px;
+}
+
+.recommendation__injury-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recommendation__injury-list li {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-h);
+}
+
+.recommendation__injury-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.recommendation__injury-link {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.recommendation__injury-history-link {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+}

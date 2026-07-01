@@ -1,0 +1,103 @@
+.injury-history {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+  box-sizing: border-box;
+}
+
+.injury-history__back {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 20px;
+  display: block;
+}
+
+.injury-history__title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-h);
+  margin: 0 0 4px;
+}
+
+.injury-history__subtitle {
+  font-size: 13px;
+  color: var(--text);
+  margin: 0 0 24px;
+}
+
+.injury-history__empty {
+  color: var(--text);
+  font-size: 14px;
+  text-align: center;
+  padding: 32px 0;
+}
+
+.injury-history__empty-card {
+  text-align: center;
+  padding: 40px 24px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--accent-bg);
+}
+
+.injury-history__empty-icon {
+  font-size: 40px;
+  margin: 0 0 12px;
+}
+
+.injury-history__empty-text {
+  font-size: 15px;
+  color: var(--text-h);
+  margin: 0;
+  font-weight: 600;
+}
+
+.injury-history__card {
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--accent-bg);
+  margin-bottom: 12px;
+}
+
+.injury-history__card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.injury-history__name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.injury-history__badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+.injury-history__dates {
+  font-size: 13px;
+  color: var(--text);
+  margin: 0 0 10px;
+}
+
+.injury-history__protocol-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
