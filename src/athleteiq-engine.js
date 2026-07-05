@@ -421,6 +421,31 @@ const RULES = [
     },
   },
 
+  // ── P3: Elevated respiratory rate (early illness / stress signal) ──────────
+
+  {
+    id: 'P3-respiratory-rate-elevated',
+    priority: 'P3',
+    name: 'Elevated respiratory rate',
+    evaluate({ respiratoryRate, respiratoryRateBaseline }) {
+      if (respiratoryRate == null || respiratoryRateBaseline == null) return null;
+      const elevationPct = ((respiratoryRate - respiratoryRateBaseline) / respiratoryRateBaseline) * 100;
+      if (elevationPct < 15) return null;
+      return this._fire(
+        `Respiratory rate ${respiratoryRate.toFixed(1)} breaths/min is ${Math.round(elevationPct)}% above your baseline — often an early sign of illness or significant physiological stress before HRV changes appear`
+      );
+    },
+    action: 'Reduce today\'s session intensity by 40–50%. Elevated breathing rate during sleep is one of the earliest physiological stress signals — your body may be fighting something before you feel it.',
+    watchFor: 'If respiratory rate remains elevated for 2+ consecutive nights alongside HRV suppression, escalate to RECOVER.',
+    isSupportingSignal: true,
+    _fire(reason) {
+      return { id: this.id, priority: this.priority, name: this.name,
+               reason, decision: DECISIONS.MODIFY,
+               action: this.action, watchFor: this.watchFor,
+               isSupportingSignal: true };
+    },
+  },
+
   // ── Injury classification rules ────────────────────────────────────────────
   // These rules consume `signals.injury` set by the classifyInjury() call in
   // signalMapper.js and drive the injury protocol card in Recommendation.jsx.

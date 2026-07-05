@@ -44,6 +44,25 @@ export async function calculateBaseline(athleteId) {
   }
 }
 
+async function computeAvgRespiratoryRate(athleteId) {
+  const cutoff = (() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 28)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })()
+
+  const { data } = await supabase
+    .from('recovery_metrics')
+    .select('respiratory_rate')
+    .eq('athlete_id', athleteId)
+    .gte('date', cutoff)
+    .not('respiratory_rate', 'is', null)
+
+  const values = (data ?? []).map(r => r.respiratory_rate).filter(v => v != null)
+  if (values.length === 0) return null
+  return Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 10) / 10
+}
+
 export async function updateBaseline(athleteId) {
   const baseline = await calculateBaseline(athleteId)
 
@@ -60,17 +79,20 @@ export async function updateBaseline(athleteId) {
 
   if (daysOfData === 0) return baseline
 
+  const avgRespiratoryRate = await computeAvgRespiratoryRate(athleteId)
+
   const { error } = await supabase.from('baselines').insert({
-    athlete_id:      athleteId,
-    avg_resting_hr:  baseline.avgRhr ?? null,
-    avg_hrv_ms:      baseline.avgHrv ?? null,
-    avg_sleep_hours: baseline.avgSleep ?? null,
-    days_of_data:    daysOfData,
+    athlete_id:           athleteId,
+    avg_resting_hr:       baseline.avgRhr ?? null,
+    avg_hrv_ms:           baseline.avgHrv ?? null,
+    avg_sleep_hours:      baseline.avgSleep ?? null,
+    avg_respiratory_rate: avgRespiratoryRate,
+    days_of_data:         daysOfData,
   })
 
   if (error) console.error('Failed to insert baseline row:', error)
 
-  return { ...baseline, daysOfData }
+  return { ...baseline, daysOfData, avgRespiratoryRate }
 }
 
 // Pure function so the averaging logic is testable without a DB connection.

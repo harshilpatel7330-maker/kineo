@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ImportHealthData from './ImportHealthData'
 import './Onboarding.css'
 
 const PATHWAYS = [
@@ -34,7 +35,14 @@ const WEARABLES = [
   { id: 'none', emoji: '📱', label: 'No wearable' },
 ]
 
-const STEPS = ['pathway', 'goals', 'wearable', 'baseline']
+const BASE_STEPS = ['pathway', 'goals', 'wearable', 'baseline']
+
+function getSteps(wearable) {
+  if (wearable === 'apple-watch') {
+    return ['pathway', 'goals', 'wearable', 'apple-import', 'baseline']
+  }
+  return BASE_STEPS
+}
 
 export default function Onboarding() {
   const navigate = useNavigate()
@@ -43,8 +51,9 @@ export default function Onboarding() {
   const [goals, setGoals] = useState([])
   const [wearable, setWearable] = useState(null)
 
-  const step = STEPS[stepIndex]
-  const progress = ((stepIndex + 1) / STEPS.length) * 100
+  const steps = getSteps(wearable)
+  const step = steps[stepIndex]
+  const progress = ((stepIndex + 1) / steps.length) * 100
 
   function toggleGoal(goalId) {
     setGoals((prev) =>
@@ -53,7 +62,7 @@ export default function Onboarding() {
   }
 
   function goNext() {
-    if (stepIndex < STEPS.length - 1) {
+    if (stepIndex < steps.length - 1) {
       setStepIndex(stepIndex + 1)
     }
   }
@@ -165,6 +174,16 @@ export default function Onboarding() {
           <button className="onboarding__continue" disabled={!wearable} onClick={goNext}>
             Continue
           </button>
+        </div>
+      )}
+
+      {step === 'apple-import' && (
+        <div className="onboarding__step">
+          <ImportHealthData
+            inline
+            onSkip={goNext}
+            onComplete={goNext}
+          />
         </div>
       )}
 

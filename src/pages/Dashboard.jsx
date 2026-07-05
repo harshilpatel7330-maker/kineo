@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Bar,
   BarChart,
@@ -207,6 +207,17 @@ export default function Dashboard() {
       >
         + Log a session
       </button>
+
+      {profile?.wearable === 'apple-watch' && !hasChartData && (
+        <Link to="/import-health" className="dashboard__import-banner">
+          <span className="dashboard__import-icon">⌚</span>
+          <div className="dashboard__import-text">
+            <p className="dashboard__import-title">Connect Apple Health</p>
+            <p className="dashboard__import-sub">Import your history to skip the 7-day wait</p>
+          </div>
+          <span className="dashboard__import-arrow">→</span>
+        </Link>
+      )}
 
       <section className="dashboard__section">
         <h2 className="dashboard__section-title">7-Day Readiness</h2>

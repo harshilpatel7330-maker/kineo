@@ -98,6 +98,11 @@ const TRANSLATIONS = [
         `Nothing concerning stood out today, so stick with your planned session.`
     },
     {
+      match: /Respiratory rate [\d.]+ breaths\/min is \d+% above your baseline/,
+      translate: () =>
+        `Your breathing rate during sleep was higher than normal — an early warning signal that often appears before HRV drops or fatigue sets in.`
+    },
+    {
       match: /Pain pattern.*consistent with bone stress injury/,
       translate: () =>
         `Your pain pattern is consistent with a bone stress injury. Stop all impact activity and seek medical evaluation within 48 hours — this is not a drill.`

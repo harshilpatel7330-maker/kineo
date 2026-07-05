@@ -25,14 +25,14 @@ export async function mapToSignals(athleteId, {
       .maybeSingle(),
     supabase
       .from('recovery_metrics')
-      .select('hrv_vs_baseline_pct, rhr_vs_baseline_bpm, sleep_nights_below_six')
+      .select('hrv_vs_baseline_pct, rhr_vs_baseline_bpm, sleep_nights_below_six, respiratory_rate')
       .eq('athlete_id', athleteId)
       .order('date', { ascending: false })
       .limit(1)
       .maybeSingle(),
     supabase
       .from('baselines')
-      .select('days_of_data')
+      .select('days_of_data, avg_respiratory_rate')
       .eq('athlete_id', athleteId)
       .order('calculated_at', { ascending: false })
       .limit(1)
@@ -63,12 +63,14 @@ export async function mapToSignals(athleteId, {
   const hasLoggedSessions    = session !== null
 
   // ── Recovery signals (persisted by updateRecoveryMetrics after each check-in) ──
-  const hrvVsBaselinePct  = recovery?.hrv_vs_baseline_pct ?? null
-  const rhrVsBaselineBpm  = recovery?.rhr_vs_baseline_bpm ?? null
+  const hrvVsBaselinePct    = recovery?.hrv_vs_baseline_pct ?? null
+  const rhrVsBaselineBpm    = recovery?.rhr_vs_baseline_bpm ?? null
   const sleepNightsBelowSix = recovery?.sleep_nights_below_six ?? null  // null not 0
+  const respiratoryRate     = recovery?.respiratory_rate ?? null
 
   // ── Baseline status (persisted by updateBaseline after each check-in) ────────
-  const hasBaseline = (baselineRow?.days_of_data ?? 0) >= 7
+  const hasBaseline              = (baselineRow?.days_of_data ?? 0) >= 7
+  const respiratoryRateBaseline  = baselineRow?.avg_respiratory_rate ?? null
 
   // ── Local: form-derived signals ───────────────────────────────────────────────
   const morningFatigue =
@@ -113,15 +115,17 @@ export async function mapToSignals(athleteId, {
     sleepNightsBelowSix,
     hasBaseline,
     morningFatigue,
-    painScore:          resolvedPainScore,
-    painTrend:          finalPainTrend,
+    painScore:               resolvedPainScore,
+    painTrend:               finalPainTrend,
     painLocation,
-    painAltersMovement: painAltersMovement ?? false,
+    painAltersMovement:      painAltersMovement ?? false,
     injury,
     hrvLoadMismatch,
     dataSource,
-    rawHrvMs:           hrvMs,
-    rawRhrBpm:          restingHrBpm,
-    rawSleepHours:      sleepHours,
+    respiratoryRate,
+    respiratoryRateBaseline,
+    rawHrvMs:                hrvMs,
+    rawRhrBpm:               restingHrBpm,
+    rawSleepHours:           sleepHours,
   }
 }

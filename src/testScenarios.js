@@ -827,6 +827,73 @@ const CI10 = injuryTest('ci-unclassified', 'Other location score 4 → unclassif
   { painLocation: 'other', painScore: 4, painTrend: 'stable', mileageChangePct: null, acwr: null, workoutType: null, hardSessionsThisWeek: null },
   'unclassified', 'low')
 
+// ── Respiratory rate rule tests ───────────────────────────────────────────────
+// The rule fires when respiratoryRate is >= 15% above respiratoryRateBaseline.
+
+const RESP_BASE_SIGNALS = {
+  hasBaseline: true, hasLoggedSessions: true,
+  acwr: 1.0, mileageChangePct: null, hardSessionsThisWeek: 2,
+  backToBackHard: false, sessionRpe: 6, rpeHighOnEasyDay: false,
+  hrvVsBaselinePct: -3, rhrVsBaselineBpm: 2, sleepNightsBelowSix: 0,
+  morningFatigue: 3, painScore: 0, painTrend: 'stable', painAltersMovement: false,
+}
+
+// RR1: respiratoryRate 20% above baseline → rule fires, MODIFY
+const RR1_result = evaluate({
+  ...RESP_BASE_SIGNALS,
+  respiratoryRate: 19.2,         // 20% above
+  respiratoryRateBaseline: 16.0,
+})
+const ptRR1 = {
+  id:    'resp-rate-elevated-fires',
+  label: 'respRate=19.2, baseline=16.0 (20% above): P3-respiratory-rate-elevated fires, MODIFY',
+  pass:
+    RR1_result.decision === 'MODIFY' &&
+    RR1_result.rulesFired.some(r => r.id === 'P3-respiratory-rate-elevated'),
+  decision:   RR1_result.decision,
+  rulesFired: RR1_result.rulesFired.map(r => r.id),
+}
+
+// RR2: respiratoryRate 10% above baseline → below 15% threshold, rule does NOT fire
+const RR2_result = evaluate({
+  ...RESP_BASE_SIGNALS,
+  respiratoryRate: 17.6,         // 10% above
+  respiratoryRateBaseline: 16.0,
+})
+const ptRR2 = {
+  id:    'resp-rate-below-threshold',
+  label: 'respRate=17.6, baseline=16.0 (10% above): below threshold — rule absent',
+  pass:  !RR2_result.rulesFired.some(r => r.id === 'P3-respiratory-rate-elevated'),
+  decision:   RR2_result.decision,
+  rulesFired: RR2_result.rulesFired.map(r => r.id),
+}
+
+// RR3: respiratoryRate null → rule silently skips
+const RR3_result = evaluate({
+  ...RESP_BASE_SIGNALS,
+  respiratoryRate: null,
+  respiratoryRateBaseline: 16.0,
+})
+const ptRR3 = {
+  id:    'resp-rate-null-no-fire',
+  label: 'respiratoryRate=null: rule absent, no error',
+  pass:  !RR3_result.rulesFired.some(r => r.id === 'P3-respiratory-rate-elevated'),
+  decision:   RR3_result.decision,
+}
+
+// RR4: baseline null → rule silently skips (can't compute % without baseline)
+const RR4_result = evaluate({
+  ...RESP_BASE_SIGNALS,
+  respiratoryRate: 19.2,
+  respiratoryRateBaseline: null,
+})
+const ptRR4 = {
+  id:    'resp-rate-no-baseline-no-fire',
+  label: 'respiratoryRateBaseline=null: rule absent (no baseline to compare against)',
+  pass:  !RR4_result.rulesFired.some(r => r.id === 'P3-respiratory-rate-elevated'),
+  decision:   RR4_result.decision,
+}
+
 const results = [
   ...runScenarios(scenarios),
   baselineIsolationTest,
@@ -855,5 +922,6 @@ const results = [
   ptPL1,
   ptPL2,
   CI1, CI2, CI3, CI4, CI5, CI6, CI7, CI8, CI9, CI10,
+  ptRR1, ptRR2, ptRR3, ptRR4,
 ]
 console.log(JSON.stringify(results, null, 2))
