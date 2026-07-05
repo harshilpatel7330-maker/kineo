@@ -128,7 +128,7 @@ export default function Onboarding() {
     localStorage.setItem('kineo_profile', JSON.stringify({ pathway: null, goals: ['return'], wearable }))
     setAthleteMode({ mode: 'return-to-sport', injuryId, injuryOnsetDate, injuryName })
     localStorage.setItem('kineo_setup_done', 'true')
-    navigate('/dashboard')
+    navigate('/recovery')
   }
 
   const visibleGoals = GOALS.filter(g => !g.runnerOnly || pathway === 'runner')

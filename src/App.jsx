@@ -1,12 +1,14 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
+import { isReturnToSport } from './utils/athleteMode'
 import CheckIn from './pages/CheckIn'
 import Dashboard from './pages/Dashboard'
 import History from './pages/History'
 import InjuryDetail from './pages/InjuryDetail'
 import InjuryHistory from './pages/InjuryHistory'
 import ImportHealthData from './pages/ImportHealthData'
+import Recovery from './pages/Recovery'
 import Settings from './pages/Settings'
 import LogSession from './pages/LogSession'
 import Onboarding from './pages/Onboarding'
@@ -22,7 +24,9 @@ const AdminEntry  = import.meta.env.DEV ? lazy(() => import('./pages/AdminEntry'
 
 function RootRedirect() {
   const setupDone = localStorage.getItem('kineo_setup_done')
-  return <Navigate to={setupDone ? '/dashboard' : '/onboarding'} replace />
+  if (!setupDone) return <Navigate to="/onboarding" replace />
+  if (isReturnToSport()) return <Navigate to="/recovery" replace />
+  return <Navigate to="/dashboard" replace />
 }
 
 export default function App() {
@@ -41,6 +45,7 @@ export default function App() {
           <Route path="/injury/:injuryId" element={<InjuryDetail />} />
           <Route path="/injury-history" element={<InjuryHistory />} />
           <Route path="/import-health" element={<ImportHealthData />} />
+          <Route path="/recovery" element={<Recovery />} />
           <Route path="/settings" element={<Settings />} />
           {import.meta.env.DEV && SeedData && (
             <Route path="/seed" element={<Suspense fallback={null}><SeedData /></Suspense>} />

@@ -1,0 +1,391 @@
+.recovery {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 24px 40px;
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  gap: 24px;
+}
+
+.recovery--empty {
+  align-items: center;
+  justify-content: center;
+  min-height: 60svh;
+  text-align: center;
+  gap: 12px;
+}
+
+.recovery__empty-icon {
+  font-size: 3rem;
+  margin: 0;
+}
+
+.recovery__empty-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.recovery__empty-sub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.recovery__empty-link {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* ── Header card ──────────────────────────────────────────────────────────── */
+
+.recovery__header-card {
+  padding: 22px 22px 20px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #6c63ff 0%, #8b83ff 100%);
+  box-shadow: 0 8px 24px rgba(108, 99, 255, 0.35);
+}
+
+.recovery__header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.recovery__header-text {
+  flex: 1;
+}
+
+.recovery__eyebrow {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.recovery__day-label {
+  margin: 0 0 8px;
+  font-size: 32px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.recovery__trend-subtext {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.4;
+}
+
+.recovery__day-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  padding: 10px 14px;
+  min-width: 52px;
+  flex-shrink: 0;
+}
+
+.recovery__day-num {
+  font-size: 26px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+
+.recovery__day-unit {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.75);
+  margin-top: 2px;
+}
+
+/* ── Sections ──────────────────────────────────────────────────────────────── */
+
+.recovery__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Today's focus card ────────────────────────────────────────────────────── */
+
+.recovery__focus-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 18px 16px;
+  border-radius: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.recovery__focus-day {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--accent);
+}
+
+.recovery__focus-instruction {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-h);
+  line-height: 1.45;
+}
+
+.recovery__checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recovery__checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.recovery__checklist-box {
+  font-size: 15px;
+  color: var(--text);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.recovery__checklist-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.recovery__protocol-link {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+  margin-top: 2px;
+}
+
+/* ── Check-in card ─────────────────────────────────────────────────────────── */
+
+.recovery__checkin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #6c63ff 0%, #8b83ff 100%);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(108, 99, 255, 0.35);
+}
+
+.recovery__checkin-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.recovery__checkin-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.recovery__checkin-title {
+  margin: 0 0 3px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.recovery__checkin-sub {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.recovery__checkin-btn {
+  background: #fff;
+  color: var(--accent);
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  transition: transform 0.15s;
+}
+
+.recovery__checkin-btn:active {
+  transform: scale(0.98);
+}
+
+/* ── Pain chart placeholder ────────────────────────────────────────────────── */
+
+.recovery__chart-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 20px;
+  border-radius: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.recovery__chart-placeholder-icon {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.recovery__chart-placeholder-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+  max-width: 260px;
+  line-height: 1.5;
+}
+
+/* ── Generic card (watch for) ──────────────────────────────────────────────── */
+
+.recovery__card {
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.recovery__watchfor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.recovery__watchfor-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-h);
+  line-height: 1.4;
+}
+
+.recovery__watchfor-dot {
+  font-size: 13px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.recovery__toggle-btn {
+  margin-top: 12px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+/* ── Escalation card ───────────────────────────────────────────────────────── */
+
+.recovery__escalation-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #FFF7ED;
+  border: 1.5px solid #FDBA74;
+}
+
+@media (prefers-color-scheme: dark) {
+  .recovery__escalation-card {
+    background: #2D1A00;
+    border-color: #92400E;
+  }
+}
+
+.recovery__escalation-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.recovery__escalation-text {
+  margin: 0;
+  font-size: 14px;
+  color: #92400E;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+@media (prefers-color-scheme: dark) {
+  .recovery__escalation-text {
+    color: #FCD34D;
+  }
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────────── */
+
+.recovery__footer {
+  text-align: center;
+  padding-top: 4px;
+}
+
+.recovery__settings-link {
+  font-size: 13px;
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+}
+
+.recovery__settings-link:hover {
+  text-decoration-color: var(--text);
+}
+
+/* ── Skeleton ──────────────────────────────────────────────────────────────── */
+
+.recovery__skeleton {
+  border-radius: 16px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--bg) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: recovery-shimmer 1.4s infinite;
+}
+
+@keyframes recovery-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

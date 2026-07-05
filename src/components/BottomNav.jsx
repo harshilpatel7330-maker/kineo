@@ -9,7 +9,7 @@ const PREVENTION_TABS = [
 ]
 
 const RTS_TABS = [
-  { to: '/dashboard', label: 'Recovery', emoji: '🩹' },
+  { to: '/recovery', label: 'Recovery', emoji: '🩹' },
   { to: '/checkin',   label: 'Check In', emoji: '✅' },
   { to: '/sessions',  label: 'Sessions', emoji: '🏋️' },
   { to: '/history',   label: 'History',  emoji: '📊' },
