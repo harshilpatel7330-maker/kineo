@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import {
   Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
 import { supabase } from '../supabaseClient'
-import { getAthleteMode } from '../utils/athleteMode'
+import { getAthleteMode, isReturnToSport } from '../utils/athleteMode'
 import { PROTOCOLS } from '../utils/injuryProtocols'
 import { computedPainTrend } from '../utils/painTrendCalculator'
 import { mapRecommendation } from '../utils/recommendationMapper'
@@ -158,7 +158,10 @@ export default function Recovery() {
     load()
   }, [])
 
-  // ── Guard: no injury set ──────────────────────────────────────────────────
+  // ── Guards ────────────────────────────────────────────────────────────────
+
+  // After graduation the user switches to prevention mode — redirect them away
+  if (!isReturnToSport()) return <Navigate to="/dashboard" replace />
 
   if (!injuryId) {
     return (
@@ -254,7 +257,7 @@ export default function Recovery() {
           <button
             type="button"
             className="dashboard__cta-btn recovery__checkin-btn"
-            onClick={() => navigate('/checkin')}
+            onClick={() => navigate('/rts-checkin')}
           >
             Check In
           </button>

@@ -2,6 +2,28 @@ import { runScenarios, evaluate } from './athleteiq-engine.js'
 import { calcReadiness } from './utils/readiness.js'
 import { computedPainTrend, combinePainTrend } from './utils/painTrendCalculator.js'
 import { classifyInjury } from './utils/injuryClassifier.js'
+// Mirror of evaluateGraduationCriteria from graduationChecker.js — inline because
+// graduationChecker.js imports supabaseClient.js which uses import.meta.env (Vite-only).
+function evaluateGraduationCriteria(rtsRows, painLogs) {
+  if (!rtsRows || rtsRows.length < 7) {
+    return { graduated: false, reason: `Only ${rtsRows?.length ?? 0} days logged — need 7 consecutive check-in days` }
+  }
+  const allPainLow = rtsRows.every(r => r.pain_score <= 1)
+  if (!allPainLow) {
+    const worst = Math.max(...rtsRows.map(r => r.pain_score))
+    return { graduated: false, reason: `Pain score reached ${worst} in last 7 days — must be ≤1 every day` }
+  }
+  const allStiffnessLow = rtsRows.every(r => r.morning_stiffness <= 2)
+  if (!allStiffnessLow) {
+    const worst = Math.max(...rtsRows.map(r => r.morning_stiffness))
+    return { graduated: false, reason: `Morning stiffness reached ${worst} in last 7 days — must be ≤2 every day` }
+  }
+  const trend = computedPainTrend(painLogs ?? [])
+  if (trend === 'worsening') {
+    return { graduated: false, reason: 'Pain trend is currently worsening — continue recovery protocol' }
+  }
+  return { graduated: true, reason: 'All graduation criteria met' }
+}
 
 // Mirror of the exported pure function in baselineCalculator.js — inline here
 // so this test file has no Supabase dependency and runs cleanly in Node.
@@ -894,6 +916,66 @@ const ptRR4 = {
   decision:   RR4_result.decision,
 }
 
+// ── Graduation criteria tests ─────────────────────────────────────────────────
+// evaluateGraduationCriteria is a pure function — no DB needed.
+// rtsRows: { pain_score, morning_stiffness }[]  (last 7, descending)
+// painLogs: { pain_score, date }[]              (last 14, descending)
+
+function makeRtsRows(n, overrides = []) {
+  return Array.from({ length: n }, (_, i) => ({
+    pain_score:        0,
+    morning_stiffness: 1,
+    ...overrides[i],
+  }))
+}
+
+// GRAD1: 7 days, all pain ≤ 1 and stiffness ≤ 2, trend improving → graduated true
+const GRAD1_rows = makeRtsRows(7)
+const GRAD1_logs = [
+  { pain_score: 0, date: '2026-07-05' },
+  { pain_score: 0, date: '2026-07-04' },
+  { pain_score: 0, date: '2026-07-03' },
+  { pain_score: 1, date: '2026-07-02' },
+  { pain_score: 2, date: '2026-07-01' },
+]
+const GRAD1_result = evaluateGraduationCriteria(GRAD1_rows, GRAD1_logs)
+const ptGRAD1 = {
+  id:    'graduation-7-days-all-qualifying',
+  label: '7 days, pain ≤1, stiffness ≤2, trend improving → graduated: true',
+  pass:  GRAD1_result.graduated === true,
+  result: GRAD1_result,
+}
+
+// GRAD2: Only 6 rows → graduated false (need 7)
+const GRAD2_rows = makeRtsRows(6)
+const GRAD2_result = evaluateGraduationCriteria(GRAD2_rows, GRAD1_logs)
+const ptGRAD2 = {
+  id:    'graduation-6-days-not-enough',
+  label: '6 qualifying days → graduated: false (need 7)',
+  pass:  GRAD2_result.graduated === false,
+  result: GRAD2_result,
+}
+
+// GRAD3: 7 rows but one pain_score: 3 → graduated false
+const GRAD3_rows = makeRtsRows(7, [{ pain_score: 3, morning_stiffness: 1 }])
+const GRAD3_result = evaluateGraduationCriteria(GRAD3_rows, GRAD1_logs)
+const ptGRAD3 = {
+  id:    'graduation-pain-score-too-high',
+  label: '7 days but pain_score=3 on one day → graduated: false (must be ≤1)',
+  pass:  GRAD3_result.graduated === false,
+  result: GRAD3_result,
+}
+
+// GRAD4: 7 rows but morning_stiffness: 4 on one day → graduated false
+const GRAD4_rows = makeRtsRows(7, [{ pain_score: 0, morning_stiffness: 4 }])
+const GRAD4_result = evaluateGraduationCriteria(GRAD4_rows, GRAD1_logs)
+const ptGRAD4 = {
+  id:    'graduation-stiffness-too-high',
+  label: '7 days but morning_stiffness=4 on one day → graduated: false (must be ≤2)',
+  pass:  GRAD4_result.graduated === false,
+  result: GRAD4_result,
+}
+
 const results = [
   ...runScenarios(scenarios),
   baselineIsolationTest,
@@ -923,5 +1005,6 @@ const results = [
   ptPL2,
   CI1, CI2, CI3, CI4, CI5, CI6, CI7, CI8, CI9, CI10,
   ptRR1, ptRR2, ptRR3, ptRR4,
+  ptGRAD1, ptGRAD2, ptGRAD3, ptGRAD4,
 ]
 console.log(JSON.stringify(results, null, 2))

@@ -9,6 +9,8 @@ import InjuryDetail from './pages/InjuryDetail'
 import InjuryHistory from './pages/InjuryHistory'
 import ImportHealthData from './pages/ImportHealthData'
 import Recovery from './pages/Recovery'
+import RTSCheckIn from './pages/RTSCheckIn'
+import Graduated from './pages/Graduated'
 import Settings from './pages/Settings'
 import LogSession from './pages/LogSession'
 import Onboarding from './pages/Onboarding'
@@ -46,6 +48,8 @@ export default function App() {
           <Route path="/injury-history" element={<InjuryHistory />} />
           <Route path="/import-health" element={<ImportHealthData />} />
           <Route path="/recovery" element={<Recovery />} />
+          <Route path="/rts-checkin" element={<RTSCheckIn />} />
+          <Route path="/graduated" element={<Graduated />} />
           <Route path="/settings" element={<Settings />} />
           {import.meta.env.DEV && SeedData && (
             <Route path="/seed" element={<Suspense fallback={null}><SeedData /></Suspense>} />

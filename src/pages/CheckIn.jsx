@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { evaluate } from '../athleteiq-engine'
 import { supabase } from '../supabaseClient'
 import { mapToSignals } from '../utils/signalMapper'
 import { fetchCumulativeLoad, updateBaseline, updateRecoveryMetrics } from '../utils/baselineCalculator'
+import { isReturnToSport } from '../utils/athleteMode'
 import './CheckIn.css'
 
 import { getAthleteId } from '../utils/athleteId'
@@ -85,6 +86,9 @@ export default function CheckIn() {
   const [sleepHours, setSleepHours] = useState('')
   const [showWhyHelp, setShowWhyHelp] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  // Gate: RTS users use the focused recovery check-in
+  if (isReturnToSport()) return <Navigate to="/rts-checkin" replace />
 
   const wearableHint = getWearableHint(profile.wearable)
 
