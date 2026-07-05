@@ -1,0 +1,124 @@
+.settings {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 24px 40px;
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  gap: 20px;
+}
+
+.settings__header {
+  margin-bottom: 4px;
+}
+
+.settings__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--text-h);
+  letter-spacing: -0.3px;
+}
+
+.settings__section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings__section-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.settings__mode-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--accent-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+}
+
+.settings__mode-icon {
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+
+.settings__mode-name {
+  margin: 0 0 2px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.settings__mode-detail {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.settings__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings__action-btn {
+  width: 100%;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 12px;
+  background: #6C63FF;
+  color: white;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(108, 99, 255, 0.3);
+}
+
+.settings__action-btn:disabled {
+  background: #CCC;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.settings__action-btn--ghost {
+  background: transparent;
+  color: #6C63FF;
+  border: 1.5px solid #6C63FF;
+  box-shadow: none;
+}
+
+.settings__cancel {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+  text-decoration: underline;
+  text-align: center;
+}
+
+.settings__sub-title {
+  margin: 0 0 2px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.settings__sub-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}

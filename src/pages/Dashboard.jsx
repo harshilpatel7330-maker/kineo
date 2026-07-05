@@ -301,6 +301,7 @@ export default function Dashboard() {
         <p className="dashboard__device-id-hint">
           Save this. If you lose access to this device or clear your browser, send this code so your data can be recovered.
         </p>
+        <Link to="/settings" className="dashboard__settings-link">⚙️ Settings &amp; mode</Link>
       </div>
     </div>
   )

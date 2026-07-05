@@ -232,3 +232,270 @@
   line-height: 1.5;
   margin: 0 0 1.5rem;
 }
+/* ── Fork cards ─────────────────────────────────────────────────────────── */
+
+.onboarding__fork-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 1.5rem;
+}
+
+.onboarding__fork-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 1.25rem 1.2rem;
+  border: 1.5px solid #E5E5E5;
+  border-radius: 16px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.onboarding__fork-card:hover {
+  border-color: #6C63FF;
+  background: #F8F7FF;
+}
+
+.onboarding__fork-card-emoji {
+  font-size: 2rem;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.onboarding__fork-card-label {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.onboarding__fork-card-sub {
+  font-size: 0.82rem;
+  color: #666;
+  line-height: 1.45;
+}
+
+/* ── Injury selection ────────────────────────────────────────────────────── */
+
+.onboarding__injury-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 1.5rem;
+  max-height: 52vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.onboarding__injury-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0.9rem 1rem;
+  border: 1.5px solid #E5E5E5;
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.onboarding__injury-card.selected {
+  border-color: #6C63FF;
+  background: #F8F7FF;
+  box-shadow: 0 2px 10px rgba(108, 99, 255, 0.12);
+}
+
+.onboarding__injury-card--unsure {
+  border-style: dashed;
+  background: #FAFAFA;
+}
+
+.onboarding__injury-card-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.onboarding__injury-card-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.onboarding__injury-card-site {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #888;
+  background: #F0F0F0;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.onboarding__injury-card-desc {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #666;
+  line-height: 1.4;
+}
+
+/* ── Injury date picker ──────────────────────────────────────────────────── */
+
+.onboarding__date-quicksels {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 1.25rem;
+}
+
+.onboarding__date-quicksel {
+  flex: 1;
+  padding: 0.65rem 0.5rem;
+  border: 1.5px solid #E5E5E5;
+  border-radius: 10px;
+  background: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.onboarding__date-quicksel.selected,
+.onboarding__date-quicksel:hover {
+  border-color: #6C63FF;
+  background: #F8F7FF;
+  color: #6C63FF;
+}
+
+.onboarding__date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 1.5rem;
+}
+
+.onboarding__date-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #888;
+}
+
+.onboarding__date-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid #E5E5E5;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-family: inherit;
+  color: #111;
+  background: white;
+  box-sizing: border-box;
+  appearance: none;
+}
+
+.onboarding__date-input:focus {
+  outline: none;
+  border-color: #6C63FF;
+}
+
+/* ── RTS welcome screen ──────────────────────────────────────────────────── */
+
+.onboarding__rts-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.onboarding__rts-check {
+  font-size: 2.5rem;
+}
+
+.onboarding__rts-welcome .onboarding__title {
+  margin: 0;
+}
+
+.onboarding__rts-injury-badge {
+  background: #F8F7FF;
+  border: 1.5px solid #E0DEFF;
+  border-radius: 999px;
+  padding: 0.4rem 1.1rem;
+}
+
+.onboarding__rts-injury-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #6C63FF;
+}
+
+.onboarding__rts-day-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: #6C63FF;
+  border-radius: 16px;
+  padding: 1rem 2rem;
+  min-width: 120px;
+}
+
+.onboarding__rts-day-num {
+  font-size: 2rem;
+  font-weight: 800;
+  color: white;
+  line-height: 1;
+}
+
+.onboarding__rts-day-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.onboarding__rts-action-card {
+  background: #FFFBEB;
+  border: 1px solid #FCD34D;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  width: 100%;
+}
+
+.onboarding__rts-action-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #92400E;
+  margin: 0 0 5px;
+}
+
+.onboarding__rts-action-text {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #78350F;
+  margin: 0;
+}
+
+.onboarding__rts-disclaimer {
+  font-size: 0.72rem;
+  color: #999;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.onboarding__rts-welcome .onboarding__continue {
+  width: 100%;
+  margin-top: 4px;
+}

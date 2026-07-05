@@ -1,13 +1,23 @@
 import { NavLink } from 'react-router-dom'
+import { isReturnToSport } from '../utils/athleteMode'
 
-const tabs = [
-  { to: '/dashboard', label: 'Home',     emoji: '🏠' },
+const PREVENTION_TABS = [
+  { to: '/dashboard', label: 'Today',    emoji: '🏠' },
+  { to: '/checkin',   label: 'Check In', emoji: '✅' },
+  { to: '/sessions',  label: 'Sessions', emoji: '🏋️' },
+  { to: '/history',   label: 'History',  emoji: '📊' },
+]
+
+const RTS_TABS = [
+  { to: '/dashboard', label: 'Recovery', emoji: '🩹' },
   { to: '/checkin',   label: 'Check In', emoji: '✅' },
   { to: '/sessions',  label: 'Sessions', emoji: '🏋️' },
   { to: '/history',   label: 'History',  emoji: '📊' },
 ]
 
 export default function BottomNav() {
+  const tabs = isReturnToSport() ? RTS_TABS : PREVENTION_TABS
+
   return (
     <nav className="bottom-nav" aria-label="Main navigation">
       {tabs.map(({ to, label, emoji }) => (
@@ -16,9 +26,7 @@ export default function BottomNav() {
           to={to}
           className={({ isActive }) => `bottom-nav__tab${isActive ? ' bottom-nav__tab--active' : ''}`}
         >
-          <span className="bottom-nav__emoji" aria-hidden="true">
-            {emoji}
-          </span>
+          <span className="bottom-nav__emoji" aria-hidden="true">{emoji}</span>
           <span className="bottom-nav__label">{label}</span>
         </NavLink>
       ))}

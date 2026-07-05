@@ -7,6 +7,7 @@ import History from './pages/History'
 import InjuryDetail from './pages/InjuryDetail'
 import InjuryHistory from './pages/InjuryHistory'
 import ImportHealthData from './pages/ImportHealthData'
+import Settings from './pages/Settings'
 import LogSession from './pages/LogSession'
 import Onboarding from './pages/Onboarding'
 import Recommendation from './pages/Recommendation'
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/injury/:injuryId" element={<InjuryDetail />} />
           <Route path="/injury-history" element={<InjuryHistory />} />
           <Route path="/import-health" element={<ImportHealthData />} />
+          <Route path="/settings" element={<Settings />} />
           {import.meta.env.DEV && SeedData && (
             <Route path="/seed" element={<Suspense fallback={null}><SeedData /></Suspense>} />
           )}
