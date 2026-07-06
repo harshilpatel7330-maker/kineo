@@ -25,6 +25,20 @@ export async function importAppleHealthData(athleteId, parsed, { onProgress } = 
   const { hrv, rhr, sleep: sleepData, respRate, workouts } = parsed
   const stats = makeStats()
 
+  // ── 0. Ensure athlete row exists (prevents FK failures on recovery_metrics) ─
+  const { data: existingAthlete } = await supabase
+    .from('athletes')
+    .select('id')
+    .eq('id', athleteId)
+    .maybeSingle()
+
+  if (!existingAthlete) {
+    await supabase.from('athletes').insert({
+      id:    athleteId,
+      email: athleteId + '@kineo.local',
+    })
+  }
+
   // ── 1. Fetch existing checkins ────────────────────────────────────────────
   const { data: existingCheckins } = await supabase
     .from('checkins')
