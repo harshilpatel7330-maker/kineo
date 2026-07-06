@@ -1,6 +1,6 @@
 import { supabase } from '../supabaseClient'
 import { computeAndPersistLoadMetrics } from './loadCalculator'
-import { updateBaseline } from './baselineCalculator'
+import { backfillRecoveryMetrics, updateBaseline } from './baselineCalculator'
 
 const BATCH_SIZE = 30   // days per insert batch
 
@@ -186,8 +186,12 @@ export async function importAppleHealthData(athleteId, parsed, { onProgress } = 
   }
 
   // ── 5. Recompute baseline from all imported data ───────────────────────────
-  if (onProgress) onProgress({ phase: 'baseline', pct: 96 })
+  if (onProgress) onProgress({ phase: 'baseline', pct: 95 })
   await updateBaseline(athleteId)
+
+  // ── 6. Backfill recovery_metrics vs-baseline values ───────────────────────
+  if (onProgress) onProgress({ phase: 'backfill', pct: 97 })
+  await backfillRecoveryMetrics(athleteId)
   if (onProgress) onProgress({ phase: 'done', pct: 100 })
 
   // ── 6. Build summary ──────────────────────────────────────────────────────

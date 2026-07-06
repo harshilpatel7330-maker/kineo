@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { parseAppleHealthZip } from '../utils/appleHealthParser'
 import { importAppleHealthData } from '../utils/appleHealthImporter'
+import { backfillRecoveryMetrics } from '../utils/baselineCalculator'
 import { getAthleteId } from '../utils/athleteId'
 import './ImportHealthData.css'
 
@@ -55,6 +56,7 @@ export default function ImportHealthData({ onSkip, onComplete, inline = false })
   const [progressLabel, setProgressLabel] = useState('')
   const [result, setResult]       = useState(null)
   const [errorMsg, setErrorMsg]   = useState('')
+  const [recalcState, setRecalcState] = useState('idle')  // idle | running | done
 
   function handleFileChange(e) {
     const file = e.target.files?.[0]
@@ -90,6 +92,7 @@ export default function ImportHealthData({ onSkip, onComplete, inline = false })
           if (p === 'importing') setProgressLabel(`Importing check-in data… ${detail ?? ''}`)
           else if (p === 'workouts') setProgressLabel(`Importing workouts… ${detail ?? ''}`)
           else if (p === 'baseline') setProgressLabel('Rebuilding your baseline…')
+          else if (p === 'backfill') setProgressLabel('Computing recovery metrics…')
           else if (p === 'done') setProgressLabel('Done!')
         },
       })
@@ -166,6 +169,22 @@ export default function ImportHealthData({ onSkip, onComplete, inline = false })
             <p>We noticed a significant HRV dip in your recent history. Today's check-in will help us understand your current recovery status.</p>
           </div>
         )}
+
+        <button
+          className="import-health__recalc"
+          disabled={recalcState === 'running'}
+          onClick={async () => {
+            setRecalcState('running')
+            await backfillRecoveryMetrics(ATHLETE_ID)
+            setRecalcState('done')
+          }}
+        >
+          {recalcState === 'running'
+            ? 'Recalculating…'
+            : recalcState === 'done'
+            ? 'Metrics recalculated'
+            : 'Recalculate recovery metrics'}
+        </button>
 
         <button className="import-health__cta" onClick={handleDone}>
           {inline ? 'Continue' : 'Go to Dashboard'}

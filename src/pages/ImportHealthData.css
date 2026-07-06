@@ -325,6 +325,25 @@
   text-align: center;
 }
 
+.import-health__recalc {
+  display: block;
+  width: 100%;
+  padding: 13px 24px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.import-health__recalc:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .import-health__cta {
   display: block;
   width: 100%;

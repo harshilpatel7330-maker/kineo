@@ -81,16 +81,16 @@ export async function updateBaseline(athleteId) {
 
   const avgRespiratoryRate = await computeAvgRespiratoryRate(athleteId)
 
-  const { error } = await supabase.from('baselines').insert({
+  const { error } = await supabase.from('baselines').upsert({
     athlete_id:           athleteId,
     avg_resting_hr:       baseline.avgRhr ?? null,
     avg_hrv_ms:           baseline.avgHrv ?? null,
     avg_sleep_hours:      baseline.avgSleep ?? null,
     avg_respiratory_rate: avgRespiratoryRate,
     days_of_data:         daysOfData,
-  })
+  }, { onConflict: 'athlete_id' })
 
-  if (error) console.error('Failed to insert baseline row:', error)
+  if (error) console.error('Failed to upsert baseline row:', error)
 
   return { ...baseline, daysOfData, avgRespiratoryRate }
 }
@@ -102,9 +102,9 @@ export function computeHrvVsBaselinePct(todayHrv, priorReadings) {
   return Math.round(((todayHrv - avg) / avg) * 1000) / 10
 }
 
-export async function updateRecoveryMetrics(athleteId, { hrv_ms, resting_hr_bpm, fatigue }) {
+export async function updateRecoveryMetrics(athleteId, { hrv_ms, resting_hr_bpm, fatigue, date: overrideDate }) {
   const _d = new Date()
-  const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`
+  const today = overrideDate ?? `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`
 
   // Query checkins strictly before today so today's own reading is excluded
   // from the baseline used to assess today. Self-inclusive averaging biases
@@ -171,6 +171,33 @@ export async function updateRecoveryMetrics(athleteId, { hrv_ms, resting_hr_bpm,
     const { error } = await supabase
       .from('recovery_metrics').insert(payload)
     if (error) console.error('Failed to insert recovery_metrics:', error)
+  }
+}
+
+export async function backfillRecoveryMetrics(athleteId) {
+  const { data: checkins } = await supabase
+    .from('checkins')
+    .select('date, hrv_ms, resting_hr_bpm')
+    .eq('athlete_id', athleteId)
+    .or('hrv_ms.not.is.null,resting_hr_bpm.not.is.null')
+    .order('date', { ascending: true })
+
+  if (!checkins?.length) return
+
+  const BATCH = 30
+  for (let i = 0; i < checkins.length; i += BATCH) {
+    const batch = checkins.slice(i, i + BATCH)
+    for (const row of batch) {
+      await updateRecoveryMetrics(athleteId, {
+        hrv_ms:         row.hrv_ms,
+        resting_hr_bpm: row.resting_hr_bpm,
+        fatigue:        null,
+        date:           row.date,
+      })
+    }
+    if (i + BATCH < checkins.length) {
+      await new Promise(r => setTimeout(r, 200))
+    }
   }
 }
 
