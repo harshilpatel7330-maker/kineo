@@ -1,0 +1,136 @@
+.insights {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 24px 40px;
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  gap: 28px;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.insights__header {
+  margin-bottom: 4px;
+}
+
+.insights__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--text-h);
+}
+
+/* ── Sections ──────────────────────────────────────────────────────────────── */
+
+.insights__section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.insights__section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.insights__section-header .dashboard__section-title {
+  margin-bottom: 0;
+}
+
+.insights__section-sub {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* ── Dip callout ──────────────────────────────────────────────────────────── */
+
+.insights__dip-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #FFF7ED;
+  border: 1.5px solid #FDBA74;
+}
+
+@media (prefers-color-scheme: dark) {
+  .insights__dip-callout {
+    background: #2D1A00;
+    border-color: #92400E;
+  }
+}
+
+.insights__dip-callout p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #92400E;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  .insights__dip-callout p {
+    color: #FCD34D;
+  }
+}
+
+/* ── Caption ──────────────────────────────────────────────────────────────── */
+
+.insights__caption {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────────── */
+
+.insights__empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 20px;
+  border-radius: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.insights__empty-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.5;
+  max-width: 260px;
+}
+
+.insights__empty-link {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+/* ── Skeleton ─────────────────────────────────────────────────────────────── */
+
+.insights__skeleton {
+  height: 220px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--bg) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: insights-shimmer 1.4s infinite;
+}
+
+@keyframes insights-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

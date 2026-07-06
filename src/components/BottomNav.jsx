@@ -5,7 +5,8 @@ const PREVENTION_TABS = [
   { to: '/dashboard', label: 'Today',    emoji: '🏠' },
   { to: '/checkin',   label: 'Check In', emoji: '✅' },
   { to: '/sessions',  label: 'Sessions', emoji: '🏋️' },
-  { to: '/history',   label: 'History',  emoji: '📊' },
+  { to: '/history',   label: 'History',  emoji: '📅' },
+  { to: '/insights',  label: 'Insights', emoji: '📊' },
 ]
 
 const RTS_TABS = [

@@ -68,6 +68,59 @@ function trendLineColor(trend) {
   return '#9CA3AF'
 }
 
+function buildHrvChartData14(checkins14) {
+  const byDate = {}
+  for (const r of checkins14) {
+    if (r.hrv_ms != null) byDate[r.date] = r.hrv_ms
+  }
+  const days = []
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    d.setHours(12, 0, 0, 0)
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const idx = 13 - i
+    days.push({ date, label: idx % 4 === 0 ? `${d.getMonth() + 1}/${d.getDate()}` : '', hrv: byDate[date] ?? null })
+  }
+  return days
+}
+
+function getHrvStatus(pct) {
+  if (pct == null) return null
+  if (pct >= -5)  return { text: '▲ Within normal range',        color: '#22C55E' }
+  if (pct >= -15) return { text: '▼ Mildly suppressed',          color: '#F59E0B' }
+  return               { text: '▼ Significantly below baseline', color: '#EF4444' }
+}
+
+function getRhrStatus(delta) {
+  if (delta == null) return null
+  if (delta <= 2) return { text: 'Within normal range',    color: '#22C55E' }
+  if (delta <= 7) return { text: 'Mildly elevated',        color: '#F59E0B' }
+  return               { text: 'Significantly elevated',   color: '#EF4444' }
+}
+
+function wearableLineColor(pct) {
+  if (pct == null) return '#9CA3AF'
+  if (pct >= 0)   return '#22C55E'
+  if (pct >= -15) return '#F59E0B'
+  return '#EF4444'
+}
+
+function computeShortHrvTrend(chartData) {
+  const pts = chartData.filter(d => d.hrv != null)
+  if (pts.length < 3) return 'few-data'
+  const recent = pts.slice(-3).map(d => d.hrv)
+  const prior  = pts.slice(-6, -3).map(d => d.hrv)
+  if (!prior.length) return 'few-data'
+  const avgR = recent.reduce((s, v) => s + v, 0) / recent.length
+  const avgP = prior.reduce((s, v) => s + v, 0) / prior.length
+  if (avgP === 0) return 'stable'
+  const change = (avgR - avgP) / avgP
+  if (change > 0.05) return 'improving'
+  if (change < -0.05) return 'worsening'
+  return 'stable'
+}
+
 function loadLastResult() {
   try {
     const raw = localStorage.getItem('kineo_last_result')
@@ -133,10 +186,17 @@ export default function Recovery() {
   const [loading,          setLoading]          = useState(true)
   const [painLogs,         setPainLogs]         = useState([])
   const [watchForExpanded, setWatchForExpanded] = useState(false)
+  const [wearableMetrics,  setWearableMetrics]  = useState(null)
+  const [hrv14,            setHrv14]            = useState([])
 
   const trend     = computedPainTrend(painLogs)
   const chartData = buildPainChartData(painLogs)
   const hasPainData = painLogs.length >= 3
+
+  const wearableChartData = useMemo(() => buildHrvChartData14(hrv14), [hrv14])
+  const wearableTrend     = computeShortHrvTrend(wearableChartData)
+  const wearableColor     = wearableLineColor(wearableMetrics?.hrv_vs_baseline_pct ?? null)
+  const hasWearableSignal = !!(wearableMetrics?.hrv_ms || wearableMetrics?.resting_hr_bpm)
 
   const trendSubtext = trend === 'improving'
     ? "Pain is trending down — you're on track."
@@ -146,13 +206,30 @@ export default function Recovery() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('pain_logs')
-        .select('pain_score, date')
-        .eq('athlete_id', ATHLETE_ID)
-        .gte('date', nDaysAgoISO(14))
-        .order('date', { ascending: false })
-      setPainLogs(data ?? [])
+      const [
+        { data: painData },
+        { data: rmData },
+        { data: latestCheckinData },
+        { data: baselineData },
+        { data: hrv14Data },
+      ] = await Promise.all([
+        supabase.from('pain_logs').select('pain_score, date').eq('athlete_id', ATHLETE_ID).gte('date', nDaysAgoISO(14)).order('date', { ascending: false }),
+        supabase.from('recovery_metrics').select('hrv_vs_baseline_pct, rhr_vs_baseline_bpm').eq('athlete_id', ATHLETE_ID).order('date', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('checkins').select('hrv_ms, resting_hr_bpm').eq('athlete_id', ATHLETE_ID).not('hrv_ms', 'is', null).order('date', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('baselines').select('avg_hrv_ms, avg_resting_hr').eq('athlete_id', ATHLETE_ID).maybeSingle(),
+        supabase.from('checkins').select('date, hrv_ms').eq('athlete_id', ATHLETE_ID).not('hrv_ms', 'is', null).gte('date', nDaysAgoISO(14)).order('date', { ascending: true }),
+      ])
+
+      setPainLogs(painData ?? [])
+      setWearableMetrics({
+        hrv_ms:              latestCheckinData?.hrv_ms              ?? null,
+        resting_hr_bpm:      latestCheckinData?.resting_hr_bpm      ?? null,
+        hrv_vs_baseline_pct: rmData?.hrv_vs_baseline_pct            ?? null,
+        rhr_vs_baseline_bpm: rmData?.rhr_vs_baseline_bpm            ?? null,
+        avg_hrv_ms:          baselineData?.avg_hrv_ms               ?? null,
+        avg_resting_hr:      baselineData?.avg_resting_hr           ?? null,
+      })
+      setHrv14(hrv14Data ?? [])
       setLoading(false)
     }
     load()
@@ -220,6 +297,105 @@ export default function Recovery() {
             <Link to={`/injury/${injuryId}`} className="recovery__protocol-link">
               See full protocol →
             </Link>
+          </div>
+        )}
+      </section>
+
+      {/* ── 2.5. HOW YOUR BODY IS RESPONDING ──────────────────────────────── */}
+      <section className="recovery__section">
+        <h2 className="dashboard__section-title">How your body is responding</h2>
+        {loading ? (
+          <Skeleton height={200} />
+        ) : !hasWearableSignal ? (
+          <div className="recovery__signals-empty">
+            <p className="recovery__signals-empty-text">
+              Connect Apple Watch data to see your recovery signals
+            </p>
+            <Link to="/import-health" className="recovery__empty-link">
+              Import Apple Health data →
+            </Link>
+          </div>
+        ) : (
+          <div className="recovery__card">
+            <div className="recovery__signals-pills">
+              <div className="recovery__signal-pill">
+                <p className="recovery__signal-label">HRV TODAY</p>
+                <p className="recovery__signal-value">
+                  {wearableMetrics.hrv_ms != null ? `${wearableMetrics.hrv_ms}ms` : '—'}
+                </p>
+                {(() => {
+                  const s = getHrvStatus(wearableMetrics.hrv_vs_baseline_pct)
+                  return s
+                    ? <p className="recovery__signal-status" style={{ color: s.color }}>{s.text}</p>
+                    : <p className="recovery__signal-status recovery__signal-status--muted">No data yet</p>
+                })()}
+              </div>
+              <div className="recovery__signal-pill">
+                <p className="recovery__signal-label">RESTING HR</p>
+                <p className="recovery__signal-value">
+                  {wearableMetrics.resting_hr_bpm != null ? `${wearableMetrics.resting_hr_bpm} bpm` : '—'}
+                </p>
+                {(() => {
+                  const s = getRhrStatus(wearableMetrics.rhr_vs_baseline_bpm)
+                  return s
+                    ? <p className="recovery__signal-status" style={{ color: s.color }}>{s.text}</p>
+                    : <p className="recovery__signal-status recovery__signal-status--muted">No data yet</p>
+                })()}
+              </div>
+            </div>
+
+            {wearableChartData.filter(d => d.hrv != null).length >= 2 && (
+              <>
+                <div className="dashboard__chart-wrap recovery__signals-chart">
+                  <ResponsiveContainer width="100%" height={120}>
+                    <LineChart data={wearableChartData} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+                      <XAxis
+                        dataKey="label"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 10, fill: 'var(--text)' }}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 10, fill: 'var(--text)' }}
+                        domain={['auto', 'auto']}
+                      />
+                      <Tooltip
+                        contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid var(--border)' }}
+                        formatter={(v) => v != null ? [`${v}ms`, 'HRV'] : []}
+                        labelFormatter={() => ''}
+                      />
+                      {wearableMetrics.avg_hrv_ms && (
+                        <ReferenceLine
+                          y={wearableMetrics.avg_hrv_ms}
+                          stroke="#9CA3AF"
+                          strokeDasharray="4 3"
+                          strokeWidth={1.5}
+                          label={{ value: 'Your baseline', position: 'insideTopRight', fontSize: 9, fill: '#9CA3AF' }}
+                        />
+                      )}
+                      <Line
+                        type="monotone"
+                        dataKey="hrv"
+                        stroke={wearableColor}
+                        strokeWidth={2}
+                        dot={{ r: 2.5, fill: wearableColor, strokeWidth: 0 }}
+                        activeDot={{ r: 4 }}
+                        connectNulls={false}
+                        isAnimationActive={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="recovery__signals-trend">
+                  {wearableTrend === 'improving'  ? 'Your HRV is recovering — a good sign.'
+                   : wearableTrend === 'worsening' ? "Your HRV is dropping — consider reducing today's load."
+                   : wearableTrend === 'few-data'  ? 'Keep logging — trends appear after a few days.'
+                   : 'Your HRV is holding steady.'}
+                </p>
+              </>
+            )}
           </div>
         )}
       </section>
