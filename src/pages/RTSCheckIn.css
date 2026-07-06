@@ -39,3 +39,20 @@
 .rts-checkin__adherence-btn:active {
   transform: scale(0.99);
 }
+
+.rts-checkin__hrv-hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  color: #888;
+}
+
+.rts-checkin__hrv-skip {
+  background: none;
+  border: none;
+  color: #6C63FF;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}

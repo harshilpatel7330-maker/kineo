@@ -4,7 +4,7 @@ import { computedPainTrend, combinePainTrend } from './utils/painTrendCalculator
 import { classifyInjury } from './utils/injuryClassifier.js'
 // Mirror of evaluateGraduationCriteria from graduationChecker.js — inline because
 // graduationChecker.js imports supabaseClient.js which uses import.meta.env (Vite-only).
-function evaluateGraduationCriteria(rtsRows, painLogs) {
+function evaluateGraduationCriteria(rtsRows, painLogs, hrvMetrics = []) {
   if (!rtsRows || rtsRows.length < 7) {
     return { graduated: false, reason: `Only ${rtsRows?.length ?? 0} days logged — need 7 consecutive check-in days` }
   }
@@ -21,6 +21,16 @@ function evaluateGraduationCriteria(rtsRows, painLogs) {
   const trend = computedPainTrend(painLogs ?? [])
   if (trend === 'worsening') {
     return { graduated: false, reason: 'Pain trend is currently worsening — continue recovery protocol' }
+  }
+  const withHrv = (hrvMetrics ?? []).filter(r => r.hrv_vs_baseline_pct != null)
+  if (withHrv.length >= 4) {
+    const passing = withHrv.filter(r => r.hrv_vs_baseline_pct >= -15).length
+    if (passing < 4) {
+      return {
+        graduated: false,
+        reason: 'Your HRV is still below your personal baseline — your body may need more recovery time before returning to full training, even though pain has resolved.',
+      }
+    }
   }
   return { graduated: true, reason: 'All graduation criteria met' }
 }
@@ -976,6 +986,52 @@ const ptGRAD4 = {
   result: GRAD4_result,
 }
 
+// GRAD5: 7 qualifying rows + 5 HRV readings all >= -15 → graduated: true
+const GRAD5_rows = makeRtsRows(7)
+const GRAD5_hrv = [
+  { hrv_vs_baseline_pct: -5  },
+  { hrv_vs_baseline_pct: -10 },
+  { hrv_vs_baseline_pct: -3  },
+  { hrv_vs_baseline_pct: -14 },
+  { hrv_vs_baseline_pct:  2  },
+]
+const GRAD5_result = evaluateGraduationCriteria(GRAD5_rows, GRAD1_logs, GRAD5_hrv)
+const ptGRAD5 = {
+  id:    'graduation-hrv-all-passing',
+  label: '7 qualifying check-ins + 5 HRV readings all >= -15 → graduated: true',
+  pass:  GRAD5_result.graduated === true,
+  result: GRAD5_result,
+}
+
+// GRAD6: 7 qualifying rows + 5 HRV readings but only 2 >= -15 → graduated: false (HRV)
+const GRAD6_hrv = [
+  { hrv_vs_baseline_pct: -20 },
+  { hrv_vs_baseline_pct: -18 },
+  { hrv_vs_baseline_pct: -16 },
+  { hrv_vs_baseline_pct:  -5 },
+  { hrv_vs_baseline_pct:  -3 },
+]
+const GRAD6_result = evaluateGraduationCriteria(GRAD5_rows, GRAD1_logs, GRAD6_hrv)
+const ptGRAD6 = {
+  id:    'graduation-hrv-too-low',
+  label: '7 qualifying check-ins + 5 HRV readings only 2 >= -15 → graduated: false (HRV suppressed)',
+  pass:  GRAD6_result.graduated === false && GRAD6_result.reason.includes('HRV'),
+  result: GRAD6_result,
+}
+
+// GRAD7: 7 qualifying rows + only 2 HRV readings → graduated: true (criterion skipped)
+const GRAD7_hrv = [
+  { hrv_vs_baseline_pct: -20 },
+  { hrv_vs_baseline_pct: -25 },
+]
+const GRAD7_result = evaluateGraduationCriteria(GRAD5_rows, GRAD1_logs, GRAD7_hrv)
+const ptGRAD7 = {
+  id:    'graduation-hrv-insufficient-data',
+  label: '7 qualifying check-ins + only 2 HRV readings → graduated: true (criterion skipped, < 4 readings)',
+  pass:  GRAD7_result.graduated === true,
+  result: GRAD7_result,
+}
+
 const results = [
   ...runScenarios(scenarios),
   baselineIsolationTest,
@@ -1006,5 +1062,6 @@ const results = [
   CI1, CI2, CI3, CI4, CI5, CI6, CI7, CI8, CI9, CI10,
   ptRR1, ptRR2, ptRR3, ptRR4,
   ptGRAD1, ptGRAD2, ptGRAD3, ptGRAD4,
+  ptGRAD5, ptGRAD6, ptGRAD7,
 ]
 console.log(JSON.stringify(results, null, 2))

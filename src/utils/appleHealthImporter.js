@@ -171,6 +171,7 @@ export async function importAppleHealthData(athleteId, parsed, { onProgress } = 
           workout_type:    w.workout_type,
           duration_min:    w.duration_min,
           rpe:             w.rpe,
+          rpe_source:      w.rpe_source ?? null,
           intensity_label: w.intensity_label,
           source:          w.source,
         }))

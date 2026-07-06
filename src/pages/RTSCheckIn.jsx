@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { evaluate } from '../athleteiq-engine'
 import { supabase } from '../supabaseClient'
@@ -48,6 +48,38 @@ export default function RTSCheckIn() {
   const [painScore,         setPainScore]         = useState(0)
   const [protocolAdherence, setProtocolAdherence] = useState(null)
   const [loading,           setLoading]           = useState(false)
+  const [showHrvNudge,      setShowHrvNudge]      = useState(false)
+  const [hrvMs,             setHrvMs]             = useState('')
+  const [restingHrBpm,      setRestingHrBpm]      = useState('')
+  const [hrvSkipped,        setHrvSkipped]        = useState(false)
+
+  // Show HRV nudge only when last 3 RTS check-ins have no wearable data
+  useEffect(() => {
+    async function checkHrvHistory() {
+      const { data: recentRts } = await supabase
+        .from('rts_checkins')
+        .select('date')
+        .eq('athlete_id', ATHLETE_ID)
+        .order('date', { ascending: false })
+        .limit(3)
+
+      if (!recentRts || recentRts.length === 0) {
+        setShowHrvNudge(true)
+        return
+      }
+
+      const dates = recentRts.map(r => r.date)
+      const { data: checkins } = await supabase
+        .from('checkins')
+        .select('hrv_ms')
+        .eq('athlete_id', ATHLETE_ID)
+        .in('date', dates)
+
+      const hasHrvData = (checkins ?? []).some(c => c.hrv_ms != null)
+      setShowHrvNudge(!hasHrvData)
+    }
+    checkHrvHistory()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Gate: non-RTS users use the standard check-in
   if (!isReturnToSport()) return <Navigate to="/checkin" replace />
@@ -66,6 +98,9 @@ export default function RTSCheckIn() {
 
       const cumulativeLoad = await fetchCumulativeLoad(ATHLETE_ID)
 
+      const enteredHrv = showHrvNudge && !hrvSkipped && hrvMs !== '' ? parseFloat(hrvMs) : null
+      const enteredRhr = showHrvNudge && !hrvSkipped && restingHrBpm !== '' ? parseFloat(restingHrBpm) : null
+
       // 1. Insert into checkins — reuse fatigue for morning stiffness, soreness for pain score
       const { error: checkinError } = await supabase
         .from('checkins')
@@ -77,8 +112,8 @@ export default function RTSCheckIn() {
           fatigue:        morningStiffness,
           soreness:       painScore,
           has_pain:       painScore > 0,
-          resting_hr_bpm: null,
-          hrv_ms:         null,
+          resting_hr_bpm: enteredRhr,
+          hrv_ms:         enteredHrv,
           sleep_hours:    null,
           source:         'rts_checkin',
         })
@@ -120,8 +155,8 @@ export default function RTSCheckIn() {
 
       // 4. Update recovery metrics and baseline
       await updateRecoveryMetrics(ATHLETE_ID, {
-        hrv_ms:         null,
-        resting_hr_bpm: null,
+        hrv_ms:         enteredHrv,
+        resting_hr_bpm: enteredRhr,
         fatigue:        morningStiffness,
       })
       await updateBaseline(ATHLETE_ID)
@@ -135,8 +170,8 @@ export default function RTSCheckIn() {
         painScore,
         painTrend:          computedTrend,
         painAltersMovement: painScore >= 6,
-        restingHrBpm:       null,
-        hrvMs:              null,
+        restingHrBpm:       enteredRhr,
+        hrvMs:              enteredHrv,
         sleepHours:         null,
       })
 
@@ -250,6 +285,53 @@ export default function RTSCheckIn() {
           ))}
         </div>
       </div>
+
+      {/* Q4 — Optional HRV nudge (shown only when recent check-ins have no wearable data) */}
+      {showHrvNudge && !hrvSkipped && (
+        <div className="check-in__wearable-section">
+          <div className="check-in__wearable-header">
+            <span>Your Apple Watch HRV</span>
+            <span className="check-in__optional-badge">optional</span>
+          </div>
+          <p className="check-in__wearable-subtitle">
+            Helps track your recovery arc — find it in Health → Browse → Heart → Heart Rate Variability
+          </p>
+          <div className="check-in__wearable-inputs">
+            <div className="check-in__wearable-input">
+              <label>HRV (ms)</label>
+              <div className="check-in__input-row">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="e.g. 52"
+                  value={hrvMs}
+                  onChange={e => setHrvMs(e.target.value)}
+                />
+                <span className="check-in__unit">ms</span>
+              </div>
+            </div>
+            <div className="check-in__wearable-input">
+              <label>Resting heart rate (bpm)</label>
+              <div className="check-in__input-row">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="e.g. 58"
+                  value={restingHrBpm}
+                  onChange={e => setRestingHrBpm(e.target.value)}
+                />
+                <span className="check-in__unit">bpm</span>
+              </div>
+            </div>
+          </div>
+          <p className="rts-checkin__hrv-hint">
+            This updates your personal baseline and improves recovery arc tracking
+          </p>
+          <button className="rts-checkin__hrv-skip" onClick={() => setHrvSkipped(true)}>
+            Skip for now
+          </button>
+        </div>
+      )}
 
       <button
         className="check-in__submit"

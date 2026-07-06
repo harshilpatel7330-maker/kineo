@@ -2,9 +2,10 @@ import { supabase } from '../supabaseClient'
 import { computedPainTrend } from './painTrendCalculator'
 
 // Pure evaluation — no Supabase dependency, fully testable.
-// rtsRows: { pain_score, morning_stiffness }[] ordered descending by date, limit 7
-// painLogs: { pain_score, date }[] ordered descending by date
-export function evaluateGraduationCriteria(rtsRows, painLogs) {
+// rtsRows:    { pain_score, morning_stiffness }[] ordered descending by date, limit 7
+// painLogs:   { pain_score, date }[] ordered descending by date
+// hrvMetrics: { hrv_vs_baseline_pct }[] ordered descending by date, limit 7 (optional)
+export function evaluateGraduationCriteria(rtsRows, painLogs, hrvMetrics = []) {
   if (!rtsRows || rtsRows.length < 7) {
     return {
       graduated: false,
@@ -38,12 +39,25 @@ export function evaluateGraduationCriteria(rtsRows, painLogs) {
     }
   }
 
+  // Criterion 5 (optional): HRV recovery check.
+  // Skip entirely if fewer than 4 readings exist — no wearable data = can't evaluate.
+  const withHrv = (hrvMetrics ?? []).filter(r => r.hrv_vs_baseline_pct != null)
+  if (withHrv.length >= 4) {
+    const passing = withHrv.filter(r => r.hrv_vs_baseline_pct >= -15).length
+    if (passing < 4) {
+      return {
+        graduated: false,
+        reason: 'Your HRV is still below your personal baseline — your body may need more recovery time before returning to full training, even though pain has resolved.',
+      }
+    }
+  }
+
   return { graduated: true, reason: 'All graduation criteria met' }
 }
 
 // I/O wrapper — queries Supabase and delegates to the pure function.
 export async function checkGraduationCriteria(athleteId) {
-  const [rtsResult, painResult] = await Promise.all([
+  const [rtsResult, painResult, hrvResult] = await Promise.all([
     supabase
       .from('rts_checkins')
       .select('pain_score, morning_stiffness, date')
@@ -56,7 +70,13 @@ export async function checkGraduationCriteria(athleteId) {
       .eq('athlete_id', athleteId)
       .order('date', { ascending: false })
       .limit(14),
+    supabase
+      .from('recovery_metrics')
+      .select('hrv_vs_baseline_pct')
+      .eq('athlete_id', athleteId)
+      .order('date', { ascending: false })
+      .limit(7),
   ])
 
-  return evaluateGraduationCriteria(rtsResult.data, painResult.data)
+  return evaluateGraduationCriteria(rtsResult.data, painResult.data, hrvResult.data)
 }

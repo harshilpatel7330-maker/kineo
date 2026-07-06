@@ -58,6 +58,10 @@ class AppleHealthXmlParser {
     this._sleep    = {}   // date → total hours
     this._respRate = {}   // date → [values]
     this._workouts = []
+    // Individual HR samples for workout RPE estimation.
+    // Apple Health XML places all <Record> elements before <Workout> elements, so all
+    // HR readings are collected first and matched to workout windows during _handleWorkout.
+    this._hrInstant = []  // { ts: number, bpm: number }[]
   }
 
   push(uint8Array, final) {
@@ -181,6 +185,15 @@ class AppleHealthXmlParser {
       if (date && !isNaN(v)) {
         ;(this._respRate[date] = this._respRate[date] ?? []).push(v)
       }
+      return
+    }
+
+    if (type === 'HKQuantityTypeIdentifierHeartRate') {
+      const start = parseAppleDate(attrs.startDate)
+      const bpm = parseFloat(attrs.value)
+      if (start && !isNaN(bpm)) {
+        this._hrInstant.push({ ts: start.getTime(), bpm })
+      }
     }
   }
 
@@ -189,16 +202,41 @@ class AppleHealthXmlParser {
     const workoutType = WORKOUT_TYPE_MAP[actType] ?? 'other'
     const start = parseAppleDate(attrs.startDate)
     if (!start) return
+    const end = parseAppleDate(attrs.endDate)
     const date = toDateStr(start)
     const durationMin = Math.round(parseFloat(attrs.duration ?? '0'))
     if (date && durationMin > 0) {
+      const startTs = start.getTime()
+      const endTs   = end ? end.getTime() : startTs + durationMin * 60000
+
+      // Match HR instant readings within this workout's time window.
+      // Works because Apple Health XML orders all <Record> elements before <Workout>
+      // elements — so _hrInstant is fully populated by the time we reach here.
+      const workoutHr = this._hrInstant.filter(r => r.ts >= startTs && r.ts <= endTs)
+
+      let rpe, rpe_source
+      if (workoutHr.length > 0) {
+        const avgHr      = workoutHr.reduce((s, r) => s + r.bpm, 0) / workoutHr.length
+        const pctHrmax   = (avgHr / 190) * 100  // estimated HRmax 190 for recreational athletes
+        if      (pctHrmax < 60) rpe = 3
+        else if (pctHrmax < 70) rpe = 5
+        else if (pctHrmax < 80) rpe = 7
+        else if (pctHrmax < 90) rpe = 8
+        else                    rpe = 9
+        rpe_source = 'hr_estimated'
+      } else {
+        rpe        = DEFAULT_RPE[workoutType] ?? 5
+        rpe_source = 'default'
+      }
+
       this._workouts.push({
         date,
-        workout_type: workoutType,
-        duration_min: durationMin,
-        rpe: DEFAULT_RPE[workoutType] ?? 6,
+        workout_type:    workoutType,
+        duration_min:    durationMin,
+        rpe,
+        rpe_source,
         intensity_label: 'moderate',
-        source: 'apple_health',
+        source:          'apple_health',
       })
     }
   }
