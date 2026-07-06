@@ -60,6 +60,13 @@ export default function LogSession() {
     try {
       const today = todayLocal()
 
+      await supabase
+        .from('athletes')
+        .upsert(
+          { id: ATHLETE_ID, email: `${ATHLETE_ID}@kineo.local` },
+          { onConflict: 'id' }
+        )
+
       const { data: row, error } = await supabase
         .from('training_sessions')
         .insert({
