@@ -37,14 +37,10 @@ function getMondayOf(date) {
   return d
 }
 
-// Produces 8 week buckets (oldest → newest) with total distance and bar color.
+// Produces 8 week buckets (oldest → newest) with total session load and bar color.
+// Session load = duration_min × RPE (Foster's session-RPE method). Null RPE
+// defaults to 5 (moderate) so Apple Health imports remain visible.
 // Color is based on week-over-week % change using MILEAGE_BANDS thresholds.
-//
-// Hand-trace example (3 sessions):
-//   Week N-1: 10 km run Mon + 5 km run Thu  → dist = 15 km, prior = 0 → gray
-//   Week N:   18 km run Sun                 → dist = 18 km
-//             changePct = (18 - 15) / 15 * 100 = 20.0%
-//             20 >= MODIFY (20) && 20 < CRITICAL (40) → orange (#F97316)
 function buildWeeklyChart(sessions) {
   const now = new Date()
   const thisMonday = getMondayOf(now)
@@ -59,23 +55,23 @@ function buildWeeklyChart(sessions) {
     const startStr = localDateStr(start)
     const endStr   = localDateStr(end)
 
-    const dist = sessions
-      .filter(s => s.distance_km != null && s.date >= startStr && s.date <= endStr)
-      .reduce((sum, s) => sum + s.distance_km, 0)
+    const load = sessions
+      .filter(s => s.date >= startStr && s.date <= endStr)
+      .reduce((sum, s) => sum + (s.duration_min ?? 0) * (s.rpe ?? 5), 0)
 
     weeks.push({
-      label:    start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      dist:     Math.round(dist * 10) / 10,
+      label: start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      load:  Math.round(load),
     })
   }
 
   return weeks.map((w, i) => {
-    const priorDist = i > 0 ? weeks[i - 1].dist : null
+    const priorLoad = i > 0 ? weeks[i - 1].load : null
     let fill
-    if (priorDist === null || priorDist === 0) {
+    if (priorLoad === null || priorLoad === 0) {
       fill = '#E5E4E7'
     } else {
-      const pct = ((w.dist - priorDist) / priorDist) * 100
+      const pct = ((w.load - priorLoad) / priorLoad) * 100
       if (pct < MILEAGE_BANDS.CAUTION)       fill = '#22C55E'
       else if (pct < MILEAGE_BANDS.MODIFY)   fill = '#F59E0B'
       else if (pct < MILEAGE_BANDS.CRITICAL) fill = '#F97316'
@@ -210,7 +206,8 @@ export default function SessionHistory() {
       </header>
 
       <div className="sessions__chart-section">
-        <p className="sessions__chart-title">Weekly distance (km)</p>
+        <p className="sessions__chart-title">Weekly Training Load</p>
+        <p className="sessions__chart-subtitle">Load change week over week</p>
         <div className="sessions__chart-wrap">
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={chartData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
@@ -226,7 +223,7 @@ export default function SessionHistory() {
                 tick={{ fontSize: 10, fill: 'var(--text)' }}
                 width={40}
               />
-              <Bar dataKey="dist" radius={[5, 5, 0, 0]} maxBarSize={28}>
+              <Bar dataKey="load" radius={[5, 5, 0, 0]} maxBarSize={28}>
                 {chartData.map((entry, idx) => (
                   <Cell key={idx} fill={entry.fill} />
                 ))}
