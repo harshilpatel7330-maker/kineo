@@ -99,7 +99,6 @@ export default function ImportHealthData({ onSkip, onComplete, inline = false })
 
       setResult(summary)
       setPhase('done')
-      if (onComplete) onComplete(summary)
     } catch (err) {
       console.error('Apple Health import error:', err)
       setErrorMsg(err.message ?? 'Something went wrong parsing the file. Make sure you selected an Apple Health export ZIP.')

@@ -60,8 +60,10 @@ function buildWeeklyChart(sessions) {
       .reduce((sum, s) => sum + (s.duration_min ?? 0) * (s.rpe ?? 5), 0)
 
     weeks.push({
-      label: start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      load:  Math.round(load),
+      label:    start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      startStr,
+      endStr,
+      load:     Math.round(load),
     })
   }
 
@@ -79,6 +81,59 @@ function buildWeeklyChart(sessions) {
     }
     return { ...w, fill }
   })
+}
+
+// Returns the single most relevant load insight for the last 8 weeks,
+// or null if there is insufficient data or no notable pattern.
+function buildLoadInsight(chartData, hrvMetrics) {
+  if (chartData.filter(w => w.load > 0).length < 3) return null
+
+  const last4 = chartData.slice(4)
+  const last2 = chartData.slice(6)
+
+  function weekHrvAvg(week) {
+    const rows = hrvMetrics.filter(
+      m => m.date >= week.startStr && m.date <= week.endStr && m.hrv_vs_baseline_pct != null
+    )
+    if (rows.length < 3) return null
+    return rows.reduce((s, m) => s + m.hrv_vs_baseline_pct, 0) / rows.length
+  }
+
+  // Case 1: load spike + HRV drop in the same week (last 4 weeks)
+  for (const week of last4) {
+    if (week.fill === '#EF4444') {
+      const hrv = weekHrvAvg(week)
+      if (hrv !== null && hrv < -10) {
+        return {
+          text: `⚠️ Your load spiked significantly the week of ${week.label} while your HRV dropped — a classic overreaching pattern. Make sure you've had enough recovery since then.`,
+          border: 'amber',
+        }
+      }
+    }
+  }
+
+  // Case 2: load spike in last 2 weeks (no HRV requirement)
+  for (const week of last2) {
+    if (week.fill === '#EF4444') {
+      return {
+        text: `Your load spiked significantly the week of ${week.label}. Watch for lingering fatigue this week — your body may still be absorbing that training block.`,
+        border: 'amber',
+      }
+    }
+  }
+
+  // Case 3: last 2 weeks low/green after a period of higher load
+  const last2BothGreen  = last2.every(w => w.fill === '#22C55E')
+  const prior4          = chartData.slice(2, 6)
+  const priorHadSpike   = prior4.some(w => w.fill === '#F97316' || w.fill === '#EF4444')
+  if (last2BothGreen && priorHadSpike) {
+    return {
+      text: `Your training load has been lower recently. If you're feeling good, this is a good week to gradually build back up — aim for no more than a 10–20% increase.`,
+      border: 'green',
+    }
+  }
+
+  return null
 }
 
 function formatDate(iso) {
@@ -132,9 +187,10 @@ function SessionCard({ session }) {
 export default function SessionHistory() {
   const location = useLocation()
   const navigate  = useNavigate()
-  const [sessions, setSessions] = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [showToast, setShowToast] = useState(location.state?.justLogged ?? false)
+  const [sessions, setSessions]     = useState([])
+  const [hrvMetrics, setHrvMetrics] = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [showToast, setShowToast]   = useState(location.state?.justLogged ?? false)
 
   // Clear the router state so back-nav doesn't replay the toast.
   useEffect(() => {
@@ -151,21 +207,35 @@ export default function SessionHistory() {
   }, [showToast])
 
   useEffect(() => {
-    async function fetchSessions() {
-      const { data, error } = await supabase
-        .from('training_sessions')
-        .select('id, date, workout_type, distance_km, duration_min, rpe, intensity_label')
-        .eq('athlete_id', ATHLETE_ID)
-        .order('date', { ascending: false })
+    async function fetchData() {
+      const d = new Date()
+      d.setDate(d.getDate() - 30)
+      const thirtyDaysAgo = localDateStr(d)
 
-      if (error) console.error('Failed to fetch sessions:', error)
-      setSessions(data ?? [])
+      const [sessRes, hrvRes] = await Promise.all([
+        supabase
+          .from('training_sessions')
+          .select('id, date, workout_type, distance_km, duration_min, rpe, intensity_label')
+          .eq('athlete_id', ATHLETE_ID)
+          .order('date', { ascending: false }),
+        supabase
+          .from('recovery_metrics')
+          .select('date, hrv_vs_baseline_pct')
+          .eq('athlete_id', ATHLETE_ID)
+          .gte('date', thirtyDaysAgo)
+          .order('date', { ascending: true }),
+      ])
+
+      if (sessRes.error) console.error('Failed to fetch sessions:', sessRes.error)
+      setSessions(sessRes.data ?? [])
+      setHrvMetrics(hrvRes.data ?? [])
       setLoading(false)
     }
-    fetchSessions()
+    fetchData()
   }, [])
 
   const chartData = buildWeeklyChart(sessions)
+  const insight   = buildLoadInsight(chartData, hrvMetrics)
 
   if (loading) {
     return (
@@ -238,6 +308,12 @@ export default function SessionHistory() {
           <span style={{ color: '#EF4444' }}>● &gt;{MILEAGE_BANDS.CRITICAL}%</span>
         </div>
       </div>
+
+      {insight && (
+        <div className={`sessions__insight-card sessions__insight-card--${insight.border}`}>
+          <p className="sessions__insight-text">{insight.text}</p>
+        </div>
+      )}
 
       <div className="history__list">
         {sessions.map(s => (

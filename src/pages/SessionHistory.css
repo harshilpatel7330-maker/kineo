@@ -58,6 +58,29 @@
   overflow: hidden;
 }
 
+.sessions__insight-card {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+}
+
+.sessions__insight-card--amber {
+  border-left-color: #F59E0B;
+}
+
+.sessions__insight-card--green {
+  border-left-color: #22C55E;
+}
+
+.sessions__insight-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-h);
+  line-height: 1.5;
+}
+
 .sessions__chart-legend {
   display: flex;
   gap: 12px;
