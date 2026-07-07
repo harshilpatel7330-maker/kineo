@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import {
   Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
@@ -182,6 +182,7 @@ function Skeleton({ height = 120 }) {
 
 export default function Recovery() {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const { injuryId, injuryOnsetDate, injuryName } = useMemo(() => getAthleteMode(), [])
   const protocol    = injuryId ? PROTOCOLS[injuryId] : null
@@ -195,13 +196,17 @@ export default function Recovery() {
     ? mapRecommendation(lastResult.result.decision)
     : null
 
-  const [loading,          setLoading]          = useState(true)
-  const [painLogs,         setPainLogs]         = useState([])
-  const [watchForExpanded, setWatchForExpanded] = useState(false)
-  const [wearableMetrics,  setWearableMetrics]  = useState(null)
-  const [hrv14,            setHrv14]            = useState([])
-  const [rtsRows,          setRtsRows]          = useState([])
-  const [progressHrvRows,  setProgressHrvRows]  = useState([])
+  const [loading,            setLoading]            = useState(true)
+  const [painLogs,           setPainLogs]           = useState([])
+  const [watchForExpanded,   setWatchForExpanded]   = useState(false)
+  const [wearableMetrics,    setWearableMetrics]    = useState(null)
+  const [hrv14,              setHrv14]              = useState([])
+  const [rtsRows,            setRtsRows]            = useState([])
+  const [progressHrvRows,    setProgressHrvRows]    = useState([])
+  const [yesterdayProtocol,  setYesterdayProtocol]  = useState(undefined)
+  const [showProtocolToast,  setShowProtocolToast]  = useState(
+    location.state?.justLoggedProtocol ?? false
+  )
 
   const trend     = computedPainTrend(painLogs)
   const chartData = buildPainChartData(painLogs)
@@ -254,6 +259,13 @@ export default function Recovery() {
   }, [qualifyingStreak, rtsRows, painLogs, progressHrvRows])
 
   useEffect(() => {
+    if (!showProtocolToast) return
+    navigate(location.pathname, { replace: true, state: {} })
+    const t = setTimeout(() => setShowProtocolToast(false), 4000)
+    return () => clearTimeout(t)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     async function load() {
       const [
         { data: painData },
@@ -263,6 +275,7 @@ export default function Recovery() {
         { data: hrv14Data },
         { data: rtsData },
         { data: progressHrvData },
+        { data: ypData },
       ] = await Promise.all([
         supabase.from('pain_logs').select('pain_score, date').eq('athlete_id', ATHLETE_ID).gte('date', nDaysAgoISO(14)).order('date', { ascending: false }),
         supabase.from('recovery_metrics').select('hrv_vs_baseline_pct, rhr_vs_baseline_bpm').eq('athlete_id', ATHLETE_ID).order('date', { ascending: false }).limit(1).maybeSingle(),
@@ -271,6 +284,7 @@ export default function Recovery() {
         supabase.from('checkins').select('date, hrv_ms').eq('athlete_id', ATHLETE_ID).not('hrv_ms', 'is', null).gte('date', nDaysAgoISO(14)).order('date', { ascending: true }),
         supabase.from('rts_checkins').select('pain_score, morning_stiffness, date').eq('athlete_id', ATHLETE_ID).order('date', { ascending: false }).limit(7),
         supabase.from('recovery_metrics').select('hrv_vs_baseline_pct, date').eq('athlete_id', ATHLETE_ID).order('date', { ascending: false }).limit(7),
+        supabase.from('rts_checkins').select('protocol_session_done, protocol_duration_min, protocol_pain_during, protocol_pain_after').eq('athlete_id', ATHLETE_ID).eq('date', nDaysAgoISO(1)).maybeSingle(),
       ])
 
       setPainLogs(painData ?? [])
@@ -285,6 +299,7 @@ export default function Recovery() {
       setHrv14(hrv14Data ?? [])
       setRtsRows(rtsData ?? [])
       setProgressHrvRows(progressHrvData ?? [])
+      setYesterdayProtocol(ypData ?? null)
       setLoading(false)
     }
     load()
@@ -308,6 +323,12 @@ export default function Recovery() {
 
   return (
     <div className="recovery">
+
+      {showProtocolToast && (
+        <div className="checkin-nudge" role="status">
+          <p className="checkin-nudge__text">Protocol logged — we'll factor this into your next recommendation.</p>
+        </div>
+      )}
 
       {/* ── 1. RECOVERY HEADER CARD ────────────────────────────────────────── */}
       <div className="recovery__header-card">
@@ -381,9 +402,38 @@ export default function Recovery() {
               </ul>
             )}
 
-            <Link to={`/injury/${injuryId}`} className="recovery__protocol-link">
-              See full protocol →
-            </Link>
+            {/* Yesterday's protocol summary */}
+            {yesterdayProtocol?.protocol_session_done === true && (() => {
+              const during = yesterdayProtocol.protocol_pain_during
+              const after  = yesterdayProtocol.protocol_pain_after
+              const max    = Math.max(during ?? 0, after ?? 0)
+              const color  = max >= 5 ? '#EF4444' : max >= 3 ? '#F59E0B' : '#22C55E'
+              return (
+                <div className="recovery__yesterday-protocol" style={{ borderLeftColor: color }}>
+                  <p className="recovery__yesterday-label" style={{ color }}>Yesterday</p>
+                  <p className="recovery__yesterday-detail">
+                    {during != null && after != null
+                      ? `During: ${during}/10 · After: ${after}/10`
+                      : 'Completed'}
+                    {yesterdayProtocol.protocol_duration_min != null
+                      ? ` · ${yesterdayProtocol.protocol_duration_min} min`
+                      : ''}
+                  </p>
+                </div>
+              )
+            })()}
+            {yesterdayProtocol?.protocol_session_done === false && (
+              <p className="recovery__yesterday-rest">Yesterday: rest day</p>
+            )}
+
+            <div className="recovery__protocol-links">
+              <Link to={`/injury/${injuryId}`} className="recovery__protocol-link">
+                See full protocol →
+              </Link>
+              <Link to="/log-protocol" className="recovery__protocol-link recovery__protocol-link--log">
+                Log how it went →
+              </Link>
+            </div>
           </div>
         )}
       </section>

@@ -311,6 +311,34 @@ const scenarios = [
       morningFatigue: 3, painScore: 0, painTrend: 'stable', painAltersMovement: false,
     }
   },
+
+  // ── P2-protocol-pain-high rule ────────────────────────────────────────────
+  {
+    id: 'protocol-pain-high-during',
+    label: 'protocolPainDuring=6 → P2-protocol-pain-high fires, MODIFY',
+    expectedDecision: 'MODIFY',
+    signals: {
+      protocolPainDuring: 6, protocolPainAfter: 2,
+      painScore: 0, painTrend: 'stable', painAltersMovement: false,
+      acwr: null, mileageChangePct: null,
+      hardSessionsThisWeek: null, sleepNightsBelowSix: null,
+      backToBackHard: false, hasBaseline: true,
+    }
+  },
+
+  {
+    id: 'protocol-pain-below-threshold',
+    label: 'protocolPainDuring=3, protocolPainAfter=3 → rule absent, MAINTAIN',
+    expectedDecision: 'MAINTAIN',
+    signals: {
+      protocolPainDuring: 3, protocolPainAfter: 3,
+      painScore: 0, painTrend: 'stable', painAltersMovement: false,
+      acwr: null, mileageChangePct: null,
+      hardSessionsThisWeek: null, sleepNightsBelowSix: null,
+      backToBackHard: false, hasBaseline: true,
+      hasLoggedSessions: true,
+    }
+  },
 ]
 
 // ── Baseline isolation test (no engine, pure math) ────────────────────────

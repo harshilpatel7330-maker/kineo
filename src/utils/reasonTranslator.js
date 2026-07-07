@@ -103,6 +103,11 @@ const TRANSLATIONS = [
         `Your breathing rate during sleep was higher than normal — an early warning signal that often appears before HRV drops or fatigue sets in.`
     },
     {
+      match: /pain (during|after) protocol (\d+)\/10/,
+      translate: () =>
+        `Your pain during or after your rehab protocol was high — this is a signal to ease off the session load while your tissue is still healing.`
+    },
+    {
       match: /Pain pattern.*consistent with bone stress injury/,
       translate: () =>
         `Your pain pattern is consistent with a bone stress injury. Stop all impact activity and seek medical evaluation within 48 hours — this is not a drill.`

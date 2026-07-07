@@ -494,6 +494,28 @@ const RULES = [
   },
 
   {
+    id: 'P2-protocol-pain-high',
+    priority: 'P2',
+    name: 'High pain during rehab protocol',
+    evaluate({ protocolPainDuring, protocolPainAfter }) {
+      const during = protocolPainDuring ?? 0
+      const after  = protocolPainAfter  ?? 0
+      if (during < 5 && after < 5) return null
+      const parts = []
+      if (during >= 5) parts.push(`pain during protocol ${during}/10`)
+      if (after  >= 5) parts.push(`pain after protocol ${after}/10`)
+      return this._fire(parts.join('; '))
+    },
+    action: 'Stop or significantly reduce today\'s protocol. Pain this high during rehabilitation suggests the load is exceeding your current tissue capacity. Rest today and reassess tomorrow.',
+    watchFor: 'If protocol pain remains at 5+ on the next session, seek professional review before continuing.',
+    _fire(reason) {
+      return { id: this.id, priority: this.priority, name: this.name,
+               reason, decision: DECISIONS.MODIFY,
+               action: this.action, watchFor: this.watchFor }
+    },
+  },
+
+  {
     id: 'P3-injury-pattern-moderate',
     priority: 'P3',
     name: 'Injury pattern — possible',

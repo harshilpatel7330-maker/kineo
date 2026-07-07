@@ -15,7 +15,7 @@ export async function mapToSignals(athleteId, {
   const fourteenDaysAgo = `${_pw.getFullYear()}-${String(_pw.getMonth() + 1).padStart(2, '0')}-${String(_pw.getDate()).padStart(2, '0')}`
 
   // Query all tables concurrently — null data means no rows yet, not an error
-  const [trainingResult, recoveryResult, baselineResult, painLogsResult, hrvLoadMismatch] = await Promise.all([
+  const [trainingResult, recoveryResult, baselineResult, painLogsResult, hrvLoadMismatch, protocolLogResult] = await Promise.all([
     supabase
       .from('training_sessions')
       .select('rpe, intensity_label, back_to_back_hard, acwr, mileage_change_pct, hard_sessions_this_week, workout_type')
@@ -45,11 +45,20 @@ export async function mapToSignals(athleteId, {
       .order('date', { ascending: false })
       .limit(5),
     computeHrvLoadMismatch(athleteId),
+    supabase
+      .from('rts_checkins')
+      .select('protocol_pain_during, protocol_pain_after')
+      .eq('athlete_id', athleteId)
+      .not('protocol_session_done', 'is', null)
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
-  const session     = trainingResult.data    // null when no sessions logged yet
-  const recovery    = recoveryResult.data    // null when no recovery_metrics yet
-  const baselineRow = baselineResult.data    // null when no baselines yet
+  const session      = trainingResult.data    // null when no sessions logged yet
+  const recovery     = recoveryResult.data    // null when no recovery_metrics yet
+  const baselineRow  = baselineResult.data    // null when no baselines yet
+  const protocolLog  = protocolLogResult.data // null when no protocol log yet
 
   // ── Training load signals (persisted by loadCalculator at session-log time) ──
   const acwr                 = session?.acwr ?? null
@@ -124,6 +133,8 @@ export async function mapToSignals(athleteId, {
     dataSource,
     respiratoryRate,
     respiratoryRateBaseline,
+    protocolPainDuring:      protocolLog?.protocol_pain_during ?? null,
+    protocolPainAfter:       protocolLog?.protocol_pain_after  ?? null,
     rawHrvMs:                hrvMs,
     rawRhrBpm:               restingHrBpm,
     rawSleepHours:           sleepHours,

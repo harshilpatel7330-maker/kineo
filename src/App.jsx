@@ -17,6 +17,7 @@ import LogSession from './pages/LogSession'
 import Onboarding from './pages/Onboarding'
 import Recommendation from './pages/Recommendation'
 import SessionHistory from './pages/SessionHistory'
+import LogProtocol from './pages/LogProtocol'
 import './App.css'
 
 // Stripped from production bundle by Vite dead-code elimination.
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/import-health" element={<ImportHealthData />} />
           <Route path="/recovery" element={<Recovery />} />
           <Route path="/rts-checkin" element={<RTSCheckIn />} />
+          <Route path="/log-protocol" element={<LogProtocol />} />
           <Route path="/graduated" element={<Graduated />} />
           <Route path="/insights" element={<Insights />} />
           <Route path="/settings" element={<Settings />} />
