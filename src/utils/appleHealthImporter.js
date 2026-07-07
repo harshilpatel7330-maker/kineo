@@ -107,7 +107,7 @@ export async function importAppleHealthData(athleteId, parsed, { onProgress } = 
     }
 
     if (toInsert.length > 0) {
-      const { error } = await supabase.from('checkins').insert(toInsert)
+      const { error } = await supabase.from('checkins').upsert(toInsert, { onConflict: 'athlete_id,date' })
       if (error) console.error('Checkin batch insert error:', error)
     }
 
@@ -178,7 +178,7 @@ export async function importAppleHealthData(athleteId, parsed, { onProgress } = 
 
         const { data: inserted, error } = await supabase
           .from('training_sessions')
-          .insert(inserts)
+          .upsert(inserts, { onConflict: 'athlete_id,date,workout_type' })
           .select('id, date')
 
         if (error) {
