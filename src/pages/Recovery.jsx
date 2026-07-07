@@ -8,6 +8,7 @@ import { getAthleteMode, isReturnToSport } from '../utils/athleteMode'
 import { PROTOCOLS } from '../utils/injuryProtocols'
 import { computedPainTrend } from '../utils/painTrendCalculator'
 import { mapRecommendation } from '../utils/recommendationMapper'
+import { evaluateGraduationCriteria } from '../utils/graduationChecker'
 import { getAthleteId } from '../utils/athleteId'
 import './Dashboard.css'
 import './Recovery.css'
@@ -121,6 +122,17 @@ function computeShortHrvTrend(chartData) {
   return 'stable'
 }
 
+function progressMsg(streak, hasRows, gradCheck) {
+  if (streak === 7) return gradCheck?.graduated
+    ? 'Criteria met — checking clearance...'
+    : 'Pain and stiffness criteria met — HRV recovery is still in progress'
+  if (streak >= 5) return `Almost there — ${7 - streak} more qualifying day${7 - streak === 1 ? '' : 's'} to go`
+  if (streak >= 2) return `Building momentum — ${7 - streak} more qualifying days to go`
+  if (streak === 1) return 'Good start — keep logging daily'
+  if (!hasRows)    return "Log today's check-in to start tracking your progress"
+  return 'Keep going — each qualifying day counts toward clearance'
+}
+
 function loadLastResult() {
   try {
     const raw = localStorage.getItem('kineo_last_result')
@@ -188,6 +200,8 @@ export default function Recovery() {
   const [watchForExpanded, setWatchForExpanded] = useState(false)
   const [wearableMetrics,  setWearableMetrics]  = useState(null)
   const [hrv14,            setHrv14]            = useState([])
+  const [rtsRows,          setRtsRows]          = useState([])
+  const [progressHrvRows,  setProgressHrvRows]  = useState([])
 
   const trend     = computedPainTrend(painLogs)
   const chartData = buildPainChartData(painLogs)
@@ -204,6 +218,22 @@ export default function Recovery() {
     ? 'Pain is rising — take it easy today.'
     : 'Keep logging check-ins to track your pain trend.'
 
+  const qualifyingStreak = useMemo(() => {
+    let count = 0
+    for (const row of rtsRows) {
+      if (row.pain_score <= 1 && row.morning_stiffness <= 2) count++
+      else break
+    }
+    return count
+  }, [rtsRows])
+
+  const gradCheck = useMemo(
+    () => qualifyingStreak === 7
+      ? evaluateGraduationCriteria(rtsRows, painLogs, progressHrvRows)
+      : null,
+    [qualifyingStreak, rtsRows, painLogs, progressHrvRows]
+  )
+
   useEffect(() => {
     async function load() {
       const [
@@ -212,12 +242,16 @@ export default function Recovery() {
         { data: latestCheckinData },
         { data: baselineData },
         { data: hrv14Data },
+        { data: rtsData },
+        { data: progressHrvData },
       ] = await Promise.all([
         supabase.from('pain_logs').select('pain_score, date').eq('athlete_id', ATHLETE_ID).gte('date', nDaysAgoISO(14)).order('date', { ascending: false }),
         supabase.from('recovery_metrics').select('hrv_vs_baseline_pct, rhr_vs_baseline_bpm').eq('athlete_id', ATHLETE_ID).order('date', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('checkins').select('hrv_ms, resting_hr_bpm').eq('athlete_id', ATHLETE_ID).not('hrv_ms', 'is', null).order('date', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('baselines').select('avg_hrv_ms, avg_resting_hr').eq('athlete_id', ATHLETE_ID).maybeSingle(),
         supabase.from('checkins').select('date, hrv_ms').eq('athlete_id', ATHLETE_ID).not('hrv_ms', 'is', null).gte('date', nDaysAgoISO(14)).order('date', { ascending: true }),
+        supabase.from('rts_checkins').select('pain_score, morning_stiffness, date').eq('athlete_id', ATHLETE_ID).order('date', { ascending: false }).limit(7),
+        supabase.from('recovery_metrics').select('hrv_vs_baseline_pct, date').eq('athlete_id', ATHLETE_ID).order('date', { ascending: false }).limit(7),
       ])
 
       setPainLogs(painData ?? [])
@@ -230,6 +264,8 @@ export default function Recovery() {
         avg_resting_hr:      baselineData?.avg_resting_hr           ?? null,
       })
       setHrv14(hrv14Data ?? [])
+      setRtsRows(rtsData ?? [])
+      setProgressHrvRows(progressHrvData ?? [])
       setLoading(false)
     }
     load()
@@ -268,6 +304,33 @@ export default function Recovery() {
           </div>
         </div>
       </div>
+
+      {/* ── 1.5. PROGRESS TO CLEARANCE ───────────────────────────────────── */}
+      {loading ? (
+        <Skeleton height={130} />
+      ) : (
+        <div className="recovery__progress-card">
+          <p className="recovery__progress-title">Progress to Clearance</p>
+          <div className="recovery__progress-track">
+            <div
+              className={`recovery__progress-fill recovery__progress-fill--${qualifyingStreak >= 5 ? 'green' : qualifyingStreak >= 2 ? 'amber' : 'gray'}`}
+              style={{ width: `${(qualifyingStreak / 7) * 100}%` }}
+            />
+          </div>
+          <div className="recovery__progress-meta">
+            <p className="recovery__progress-count">
+              <strong>{qualifyingStreak} of 7</strong> qualifying days
+            </p>
+            <p className="recovery__progress-criteria">Pain ≤ 1/10 and morning stiffness ≤ 2/10</p>
+          </div>
+          <p className="recovery__progress-msg">
+            {progressMsg(qualifyingStreak, rtsRows.length > 0, gradCheck)}
+          </p>
+          <p className="recovery__progress-hrv-note">
+            Clearance also considers your HRV recovery if Apple Watch data is available
+          </p>
+        </div>
+      )}
 
       {/* ── 2. TODAY'S FOCUS ───────────────────────────────────────────────── */}
       <section className="recovery__section">
