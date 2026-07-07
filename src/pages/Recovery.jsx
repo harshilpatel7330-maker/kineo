@@ -234,6 +234,25 @@ export default function Recovery() {
     [qualifyingStreak, rtsRows, painLogs, progressHrvRows]
   )
 
+  const trajectoryLine = useMemo(() => {
+    if (qualifyingStreak === 0) {
+      if (rtsRows.length === 0) return null
+      return "Focus on today's protocol — your streak resets with each qualifying day you add"
+    }
+    const recentTrend = computedPainTrend(painLogs.slice(0, 5))
+    if (recentTrend === 'worsening') {
+      return '⚠️ Your pain is trending up — prioritise recovery before pushing the timeline'
+    }
+    if (qualifyingStreak >= 5) {
+      const withHrv = progressHrvRows.filter(r => r.hrv_vs_baseline_pct != null)
+      if (withHrv.length >= 4 && withHrv.filter(r => r.hrv_vs_baseline_pct >= -15).length < 4) {
+        return 'Pain criteria on track — your HRV suggests your body may need a little more recovery time after pain resolves'
+      }
+    }
+    const rem = 7 - qualifyingStreak
+    return `At this pace, you could be cleared in approximately ${rem} more qualifying day${rem === 1 ? '' : 's'}`
+  }, [qualifyingStreak, rtsRows, painLogs, progressHrvRows])
+
   useEffect(() => {
     async function load() {
       const [
@@ -326,6 +345,11 @@ export default function Recovery() {
           <p className="recovery__progress-msg">
             {progressMsg(qualifyingStreak, rtsRows.length > 0, gradCheck)}
           </p>
+          {trajectoryLine && (
+            <p className="recovery__progress-hrv-note" style={{ marginTop: 8 }}>
+              {trajectoryLine}
+            </p>
+          )}
           <p className="recovery__progress-hrv-note">
             Clearance also considers your HRV recovery if Apple Watch data is available
           </p>
