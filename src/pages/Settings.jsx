@@ -4,7 +4,7 @@ import { supabase } from '../supabaseClient'
 import { backfillRecoveryMetrics } from '../utils/baselineCalculator'
 import { getAthleteId } from '../utils/athleteId'
 import { PROTOCOLS } from '../utils/injuryProtocols'
-import { getAthleteMode, setAthleteMode, getAthleteGoal, setAthleteGoal } from '../utils/athleteMode'
+import { getAthleteMode, setAthleteMode, getAthleteGoal, setAthleteGoal, getName } from '../utils/athleteMode'
 import GoalSetup from '../components/GoalSetup'
 import './Onboarding.css'
 import './Settings.css'
@@ -46,6 +46,7 @@ export default function Settings() {
   const isRts       = current.mode === 'return-to-sport'
 
   const [subStep,         setSubStep]         = useState('main')  // main | injury-select | injury-date | goal
+  const [nameInput,       setNameInput]       = useState(() => getName() === 'Athlete' ? '' : getName())
   const [currentGoal,     setCurrentGoal]     = useState(() => getAthleteGoal())
   const [injuryId,        setInjuryId]        = useState(current.injuryId ?? null)
   const [injuryOnsetDate, setInjuryOnsetDate] = useState(current.injuryOnsetDate ?? todayISO())
@@ -75,6 +76,29 @@ export default function Settings() {
       <div className="settings__header">
         <h1 className="settings__title">Settings</h1>
       </div>
+
+      {subStep === 'main' && (
+        <div className="settings__section">
+          <p className="settings__section-label">Your name</p>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
+            <input
+              type="text"
+              className="onboarding__date-input"
+              style={{ flex: 1 }}
+              placeholder="Your first name"
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+            />
+            <button
+              className="settings__action-btn"
+              style={{ flex: 'none' }}
+              onClick={() => setAthleteMode({ userName: nameInput.trim() || null })}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
 
       {subStep === 'main' && (
         <div className="settings__section">

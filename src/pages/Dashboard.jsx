@@ -14,7 +14,7 @@ import { mapRecommendation } from '../utils/recommendationMapper'
 import './Dashboard.css'
 
 import { getAthleteId } from '../utils/athleteId'
-import { getAthleteGoal, isPreventionMode } from '../utils/athleteMode'
+import { getAthleteGoal, isPreventionMode, getName } from '../utils/athleteMode'
 const ATHLETE_ID = getAthleteId()
 
 const SPORT_LABELS = {
@@ -258,7 +258,7 @@ export default function Dashboard() {
   return (
     <div className="dashboard">
       <header className="dashboard__header">
-        <h1 className="dashboard__greeting">{getGreeting()}, Athlete 👋</h1>
+        <h1 className="dashboard__greeting">{getGreeting()}, {getName()} 👋</h1>
         <p className="dashboard__date">{formatToday()}</p>
       </header>
 

@@ -3,18 +3,32 @@ const GOAL_KEY = 'kineo_athlete_goal'
 
 const EMPTY_GOAL = { goalType: null, goalName: null, goalDate: null, goalWeeklyVolume: null }
 
+const MODE_DEFAULTS = { mode: 'prevention', injuryId: null, injuryOnsetDate: null, injuryName: null, userName: null }
+
 export function getAthleteMode() {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return { mode: 'prevention', injuryId: null, injuryOnsetDate: null, injuryName: null }
-    return JSON.parse(raw)
+    if (!raw) return { ...MODE_DEFAULTS }
+    return { ...MODE_DEFAULTS, ...JSON.parse(raw) }
   } catch {
-    return { mode: 'prevention', injuryId: null, injuryOnsetDate: null, injuryName: null }
+    return { ...MODE_DEFAULTS }
   }
 }
 
-export function setAthleteMode({ mode, injuryId = null, injuryOnsetDate = null, injuryName = null }) {
-  localStorage.setItem(KEY, JSON.stringify({ mode, injuryId, injuryOnsetDate, injuryName }))
+export function setAthleteMode(updates = {}) {
+  const current = getAthleteMode()
+  const next = {
+    mode:            updates.mode            !== undefined ? updates.mode            : current.mode,
+    injuryId:        updates.injuryId        !== undefined ? updates.injuryId        : current.injuryId,
+    injuryOnsetDate: updates.injuryOnsetDate !== undefined ? updates.injuryOnsetDate : current.injuryOnsetDate,
+    injuryName:      updates.injuryName      !== undefined ? updates.injuryName      : current.injuryName,
+    userName:        updates.userName        !== undefined ? updates.userName        : current.userName,
+  }
+  localStorage.setItem(KEY, JSON.stringify(next))
+}
+
+export function getName() {
+  return getAthleteMode().userName || 'Athlete'
 }
 
 export function isReturnToSport() {

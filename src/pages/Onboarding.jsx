@@ -77,6 +77,7 @@ export default function Onboarding() {
   // Shared state
   const [stepIndex, setStepIndex] = useState(0)
   const [mode,      setMode]      = useState(null)   // 'return-to-sport' | 'prevention'
+  const [userName,  setUserName]  = useState('')
 
   // Return-to-sport state
   const [injuryId,       setInjuryId]       = useState(null)
@@ -105,7 +106,7 @@ export default function Onboarding() {
 
   function finishPrevention() {
     localStorage.setItem('kineo_profile', JSON.stringify({ pathway, goals }))
-    setAthleteMode({ mode: 'prevention', injuryId: null, injuryOnsetDate: null, injuryName: null })
+    setAthleteMode({ mode: 'prevention', injuryId: null, injuryOnsetDate: null, injuryName: null, userName: userName.trim() || null })
     localStorage.setItem('kineo_setup_done', 'true')
     navigate('/dashboard')
   }
@@ -113,7 +114,7 @@ export default function Onboarding() {
   function finishRts() {
     const injuryName = injuryId === 'unclassified' ? "I'm not sure" : (INJURY_META[injuryId]?.name ?? null)
     localStorage.setItem('kineo_profile', JSON.stringify({ pathway: null, goals: ['return'] }))
-    setAthleteMode({ mode: 'return-to-sport', injuryId, injuryOnsetDate, injuryName })
+    setAthleteMode({ mode: 'return-to-sport', injuryId, injuryOnsetDate, injuryName, userName: userName.trim() || null })
     localStorage.setItem('kineo_setup_done', 'true')
     navigate('/recovery')
   }
@@ -136,6 +137,17 @@ export default function Onboarding() {
         <div className="onboarding__step">
           <h1 className="onboarding__title">What brings you to Kineo?</h1>
           <p className="onboarding__subtitle">Choose the path that fits your situation right now</p>
+
+          <div className="onboarding__date-field" style={{ marginBottom: 8 }}>
+            <label className="onboarding__date-label">First, what&apos;s your name?</label>
+            <input
+              type="text"
+              className="onboarding__date-input"
+              placeholder="Your first name"
+              value={userName}
+              onChange={e => setUserName(e.target.value)}
+            />
+          </div>
 
           <div className="onboarding__fork-cards">
             <button
