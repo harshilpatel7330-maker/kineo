@@ -176,7 +176,7 @@ export default function RTSCheckIn() {
       })
 
       const goalContext = signals.goalType
-        ? { goalType: signals.goalType, goalName: signals.goalName, goalDate: signals.goalDate, goalWeeklyVolume: signals.goalWeeklyVolume }
+        ? { goalType: signals.goalType, goalName: signals.goalName, goalDate: signals.goalDate, goalWeeklyVolume: signals.goalWeeklyVolume, phase: signals.phase, phaseLabel: signals.phaseLabel, name: signals.athleteName }
         : null
       const result = evaluate(signals, goalContext)
 

@@ -2,6 +2,7 @@ import { runScenarios, evaluate } from './athleteiq-engine.js'
 import { calcReadiness } from './utils/readiness.js'
 import { computedPainTrend, combinePainTrend } from './utils/painTrendCalculator.js'
 import { classifyInjury } from './utils/injuryClassifier.js'
+import { getTrainingPhase } from './utils/trainingPhase.js'
 // Mirror of evaluateGraduationCriteria from graduationChecker.js — inline because
 // graduationChecker.js imports supabaseClient.js which uses import.meta.env (Vite-only).
 function evaluateGraduationCriteria(rtsRows, painLogs, hrvMetrics = []) {
@@ -1085,6 +1086,21 @@ const ptGC2 = {
   result: GC2_result,
 }
 
+function weeksFutureISO(n) {
+  const d = new Date()
+  d.setDate(d.getDate() + n * 7)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const tp1 = getTrainingPhase({ goalType: 'race', goalDate: weeksFutureISO(10) })
+const ptTP1 = { id: 'tp-race-base', label: 'Race 10w out → base', pass: tp1?.phase === 'base', result: tp1 }
+
+const tp2 = getTrainingPhase({ goalType: 'race', goalDate: weeksFutureISO(3) })
+const ptTP2 = { id: 'tp-race-peak', label: 'Race 3w out → peak', pass: tp2?.phase === 'peak', result: tp2 }
+
+const tp3 = getTrainingPhase({ goalType: 'strength', goalDate: weeksFutureISO(2) })
+const ptTP3 = { id: 'tp-strength-peak', label: 'Strength 2w out → peak', pass: tp3?.phase === 'peak', result: tp3 }
+
 const results = [
   ...runScenarios(scenarios),
   baselineIsolationTest,
@@ -1117,5 +1133,6 @@ const results = [
   ptGRAD1, ptGRAD2, ptGRAD3, ptGRAD4,
   ptGRAD5, ptGRAD6, ptGRAD7,
   ptGC1, ptGC2,
+  ptTP1, ptTP2, ptTP3,
 ]
 console.log(JSON.stringify(results, null, 2))

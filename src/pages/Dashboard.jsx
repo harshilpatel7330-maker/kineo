@@ -15,6 +15,7 @@ import './Dashboard.css'
 
 import { getAthleteId } from '../utils/athleteId'
 import { getAthleteGoal, isPreventionMode, getName } from '../utils/athleteMode'
+import { getTrainingPhase } from '../utils/trainingPhase'
 const ATHLETE_ID = getAthleteId()
 
 const SPORT_LABELS = {
@@ -127,6 +128,12 @@ function getWeeklySummaryText({ sessionCount, loadChangePct, flaggedDays }) {
   return parts.join(' · ')
 }
 
+function phaseColor(phase) {
+  if (['base', 'accumulation', 'consistency', 'ongoing'].includes(phase)) return 'green'
+  if (['build', 'intensification'].includes(phase)) return 'amber'
+  return 'red'
+}
+
 function loadProfile() {
   try {
     const raw = localStorage.getItem('kineo_profile')
@@ -183,6 +190,7 @@ export default function Dashboard() {
   const lastResult = useMemo(() => loadLastResult(), [])
   const goal = useMemo(() => getAthleteGoal(), [])
   const isPreventionUser = useMemo(() => isPreventionMode(), [])
+  const phaseInfo = useMemo(() => getTrainingPhase(goal), [goal])
   const checkInToday = isCheckInToday(lastResult)
 
   useEffect(() => {
@@ -287,6 +295,17 @@ export default function Dashboard() {
             </div>
             <Link to="/settings" className="dashboard__goal-edit">Edit</Link>
           </div>
+
+          {phaseInfo && (
+            <>
+              <span className={`dashboard__phase-badge dashboard__phase-badge--${phaseColor(phaseInfo.phase)}`}>
+                {phaseInfo.phaseLabel}
+              </span>
+              {phaseInfo.focus && (
+                <p className="dashboard__phase-focus">{phaseInfo.focus}</p>
+              )}
+            </>
+          )}
 
           {goal.goalType === 'race' && goal.goalDate && (
             <div className="dashboard__goal-bar">

@@ -4,7 +4,8 @@ import { evaluate } from '../athleteiq-engine'
 import { supabase } from '../supabaseClient'
 import { mapToSignals } from '../utils/signalMapper'
 import { fetchCumulativeLoad, updateBaseline, updateRecoveryMetrics } from '../utils/baselineCalculator'
-import { isReturnToSport } from '../utils/athleteMode'
+import { isReturnToSport, getAthleteGoal } from '../utils/athleteMode'
+import { getTrainingPhase } from '../utils/trainingPhase'
 import './CheckIn.css'
 
 import { getAthleteId } from '../utils/athleteId'
@@ -89,6 +90,9 @@ export default function CheckIn() {
 
   // Gate: RTS users use the focused recovery check-in
   if (isReturnToSport()) return <Navigate to="/rts-checkin" replace />
+
+  const _goal      = getAthleteGoal()
+  const _phaseInfo = _goal.goalType && _goal.goalDate ? getTrainingPhase(_goal) : null
 
   const wearableHint = getWearableHint(profile.wearable)
 
@@ -175,7 +179,7 @@ export default function CheckIn() {
       })
 
       const goalContext = signals.goalType
-        ? { goalType: signals.goalType, goalName: signals.goalName, goalDate: signals.goalDate, goalWeeklyVolume: signals.goalWeeklyVolume }
+        ? { goalType: signals.goalType, goalName: signals.goalName, goalDate: signals.goalDate, goalWeeklyVolume: signals.goalWeeklyVolume, phase: signals.phase, phaseLabel: signals.phaseLabel, name: signals.athleteName }
         : null
       const result = evaluate(signals, goalContext)
 
@@ -233,6 +237,16 @@ export default function CheckIn() {
         <p className="check-in__date">{formatDate()}</p>
         <p className="check-in__subtitle">Takes less than 30 seconds</p>
       </div>
+
+      {/* Phase context */}
+      {_phaseInfo && _goal.goalName && (
+        <p className="check-in__subtitle" style={{ textAlign: 'center', marginTop: 0 }}>
+          {_phaseInfo.phaseLabel}
+          {_phaseInfo.weekNumber != null
+            ? ` · Week ${_phaseInfo.weekNumber} of your ${_goal.goalName} training`
+            : ` · Training for ${_goal.goalName}`}
+        </p>
+      )}
 
       {/* Sliders */}
       {SLIDERS.map(({ key, label, emojis, leftLabel, rightLabel, gradient }) => (

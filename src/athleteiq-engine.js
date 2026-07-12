@@ -542,10 +542,29 @@ const RULES = [
 
 function goalAwarePushAction(baseAction, goalContext) {
   if (!goalContext?.goalName) return baseAction
-  const suffix = goalContext.goalType === 'race'
-    ? `This session builds your ${goalContext.goalName} preparation.`
-    : `Keep building toward ${goalContext.goalName}.`
-  return `${baseAction} ${suffix}`
+  const { phase, goalType, goalName, name } = goalContext
+  switch (phase) {
+    case 'base':
+      return "Your signals are green and you're in base building — today is a good day to add easy mileage. Stay aerobic."
+    case 'build':
+      return "Good recovery signals during your build phase — if today has a quality session planned, execute it. Keep tomorrow easy."
+    case 'peak':
+      return `${name || 'Athlete'}, your signals are green in peak training — push today's session but prioritise sleep tonight. This block is the hardest one.`
+    case 'taper':
+      return `You're tapering for ${goalName} — keep today's session short and sharp. Don't add volume.`
+    case 'race':
+      return "It's race week — easy movement only today. Your fitness is locked in."
+    default:
+      return `${baseAction} ${goalType === 'race' ? `This session builds your ${goalName} preparation.` : `Keep building toward ${goalName}.`}`
+  }
+}
+
+function goalAwareModifyAction(baseAction, goalContext) {
+  const { phase, phaseLabel } = goalContext ?? {}
+  if ((phase === 'peak' || phase === 'taper') && phaseLabel) {
+    return `During ${phaseLabel}, recovery is especially important. ${baseAction}`
+  }
+  return baseAction
 }
 
 export function evaluate(signals, goalContext = null) {
@@ -650,6 +669,8 @@ export function evaluate(signals, goalContext = null) {
     reasons:    sortedRules.map(r => r.reason),
     action:     finalDecision === DECISIONS.PUSH
                   ? goalAwarePushAction(drivingRule.action, goalContext)
+                  : finalDecision === DECISIONS.MODIFY
+                  ? goalAwareModifyAction(drivingRule.action, goalContext)
                   : drivingRule.action,
     watchFor:   drivingRule.watchFor,
     warnings,

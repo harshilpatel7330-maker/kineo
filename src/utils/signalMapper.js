@@ -2,7 +2,8 @@ import { supabase } from '../supabaseClient'
 import { computedPainTrend, combinePainTrend } from './painTrendCalculator.js'
 import { computeHrvLoadMismatch } from './loadCalculator.js'
 import { classifyInjury } from './injuryClassifier.js'
-import { getAthleteGoal } from './athleteMode.js'
+import { getAthleteGoal, getName } from './athleteMode.js'
+import { getTrainingPhase } from './trainingPhase.js'
 
 export async function mapToSignals(athleteId, {
   sleep, stress, fatigue, soreness,
@@ -111,13 +112,17 @@ export async function mapToSignals(athleteId, {
     hardSessionsThisWeek,
   })
 
-  const goal = getAthleteGoal()
+  const goal      = getAthleteGoal()
+  const phaseInfo = getTrainingPhase(goal)
 
   return {
-    goalType:        goal.goalType,
-    goalName:        goal.goalName,
-    goalDate:        goal.goalDate,
+    goalType:         goal.goalType,
+    goalName:         goal.goalName,
+    goalDate:         goal.goalDate,
     goalWeeklyVolume: goal.goalWeeklyVolume,
+    phase:            phaseInfo?.phase      ?? null,
+    phaseLabel:       phaseInfo?.phaseLabel ?? null,
+    athleteName:      getName(),
     acwr,
     mileageChangePct,
     hardSessionsThisWeek,
