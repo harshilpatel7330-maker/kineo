@@ -153,10 +153,11 @@ function Skeleton() {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Insights() {
-  const [loading,    setLoading]    = useState(true)
-  const [checkins60, setCheckins60] = useState([])
-  const [baseline,   setBaseline]   = useState(null)
-  const [sessions,   setSessions]   = useState([])
+  const [loading,         setLoading]         = useState(true)
+  const [checkins60,      setCheckins60]      = useState([])
+  const [baseline,        setBaseline]        = useState(null)
+  const [sessions,        setSessions]        = useState([])
+  const [loadChartOpen,   setLoadChartOpen]   = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -377,6 +378,20 @@ export default function Insights() {
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
+            <button
+              className="insights__caption"
+              style={{ background: 'none', border: 'none', padding: '4px 0', cursor: 'pointer', textAlign: 'left', width: '100%' }}
+              onClick={() => setLoadChartOpen(o => !o)}
+            >
+              How to read this chart {loadChartOpen ? '↑' : '↓'}
+            </button>
+            {loadChartOpen && (
+              <div className="insights__caption" style={{ marginTop: 0 }}>
+                <p style={{ margin: '2px 0' }}>📊 Bars — your total training load each week (duration × effort). Taller = harder week.</p>
+                <p style={{ margin: '2px 0' }}>💜 Line — your average HRV that week. Higher = better recovered.</p>
+                <p style={{ margin: '2px 0' }}>⚠️ Watch for: bars rising while the line drops — that's your body telling you it needs more recovery.</p>
+              </div>
+            )}
             <p className="insights__caption">
               When your training load increases and HRV drops simultaneously,
               your body may need more recovery time.
