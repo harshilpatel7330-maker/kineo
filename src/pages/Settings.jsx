@@ -1,9 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '../supabaseClient'
+import { backfillRecoveryMetrics } from '../utils/baselineCalculator'
+import { getAthleteId } from '../utils/athleteId'
 import { PROTOCOLS } from '../utils/injuryProtocols'
 import { getAthleteMode, setAthleteMode } from '../utils/athleteMode'
 import './Onboarding.css'
 import './Settings.css'
+
+const ATHLETE_ID = getAthleteId()
 
 const INJURY_ORDER = [
   'shin-splints', 'it-band', 'plantar-fasciitis', 'patellar-tendinopathy',
@@ -42,6 +47,13 @@ export default function Settings() {
   const [subStep,         setSubStep]         = useState('main')  // main | injury-select | injury-date
   const [injuryId,        setInjuryId]        = useState(current.injuryId ?? null)
   const [injuryOnsetDate, setInjuryOnsetDate] = useState(current.injuryOnsetDate ?? todayISO())
+  const [hasBaseline,     setHasBaseline]     = useState(false)
+  const [recalcState,     setRecalcState]     = useState('idle')  // idle | running | done
+
+  useEffect(() => {
+    supabase.from('baselines').select('id').eq('athlete_id', ATHLETE_ID).limit(1).maybeSingle()
+      .then(({ data }) => setHasBaseline(data != null))
+  }, [])
 
   function switchToPrevention() {
     setAthleteMode({ mode: 'prevention', injuryId: null, injuryOnsetDate: null, injuryName: null })
@@ -89,6 +101,33 @@ export default function Settings() {
           ) : (
             <button className="settings__action-btn" onClick={() => setSubStep('injury-select')}>
               Switch to Recovery Mode
+            </button>
+          )}
+        </div>
+      )}
+
+      {subStep === 'main' && (
+        <div className="settings__section">
+          <p className="settings__section-label">Apple Health Data</p>
+          <p className="settings__sub-text">Import your Apple Watch history to enhance recovery signal tracking</p>
+          <button className="settings__action-btn" onClick={() => navigate('/import-health')}>
+            Import Apple Health Data
+          </button>
+          {hasBaseline && (
+            <button
+              className="settings__action-btn settings__action-btn--ghost"
+              disabled={recalcState === 'running'}
+              onClick={async () => {
+                setRecalcState('running')
+                await backfillRecoveryMetrics(ATHLETE_ID)
+                setRecalcState('done')
+              }}
+            >
+              {recalcState === 'running'
+                ? 'Recalculating…'
+                : recalcState === 'done'
+                ? 'Metrics recalculated'
+                : 'Recalculate recovery metrics'}
             </button>
           )}
         </div>

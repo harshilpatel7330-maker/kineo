@@ -313,6 +313,63 @@
   font-style: italic;
 }
 
+/* ── Pain summary (no-wearable fallback) ──────────────────────────────────── */
+
+.recovery__pain-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.recovery__pain-avg-label {
+  margin: 0 0 2px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.recovery__pain-avg-value {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-h);
+  line-height: 1;
+}
+
+.recovery__pain-avg-denom {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  opacity: 0.6;
+}
+
+.recovery__pain-trend-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 20px;
+}
+
+.recovery__pain-trend-badge--improving { background: #DCFCE7; color: #15803D; }
+.recovery__pain-trend-badge--worsening { background: #FEE2E2; color: #B91C1C; }
+.recovery__pain-trend-badge--stable    { background: var(--accent-bg); color: var(--text); }
+
+@media (prefers-color-scheme: dark) {
+  .recovery__pain-trend-badge--improving { background: #14532D; color: #86EFAC; }
+  .recovery__pain-trend-badge--worsening { background: #450A0A; color: #FCA5A5; }
+}
+
+.recovery__pain-interp {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+  font-style: italic;
+}
+
 .recovery__signal-stale-note {
   margin: 6px 0 0;
   font-size: 12px;

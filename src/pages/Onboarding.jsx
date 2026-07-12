@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import ImportHealthData from './ImportHealthData'
 import { PROTOCOLS } from '../utils/injuryProtocols'
 import { setAthleteMode } from '../utils/athleteMode'
 import './Onboarding.css'
@@ -25,7 +24,7 @@ const INJURY_META = {
   'elbow-tendinopathy':    { name: 'Elbow Tendinopathy',             site: 'Elbow / forearm' },
 }
 
-// ── Pathway / goals / wearable data (prevention path) ───────────────────────
+// ── Pathway / goals data (prevention path) ──────────────────────────────────
 
 const PATHWAYS = [
   { id: 'runner',       emoji: '🏃', label: 'Runner',               sub: '5K · 10K · Half · Marathon · General running' },
@@ -40,24 +39,12 @@ const GOALS = [
   { id: 'return',            icon: '📈', label: 'Return to Training',    sub: 'Coming back from injury or a break' },
 ]
 
-const WEARABLES = [
-  { id: 'apple-watch', emoji: '⌚', label: 'Apple Watch' },
-  { id: 'garmin',      emoji: '🟠', label: 'Garmin' },
-  { id: 'whoop',       emoji: '🖤', label: 'WHOOP' },
-  { id: 'oura',        emoji: '💍', label: 'Oura Ring' },
-  { id: 'fitbit',      emoji: '💙', label: 'Fitbit' },
-  { id: 'none',        emoji: '📱', label: 'No wearable' },
-]
-
 // ── Step sequence ────────────────────────────────────────────────────────────
 
-function getSteps(mode, wearable) {
+function getSteps(mode) {
   if (!mode) return ['fork']
-  const withApple = wearable === 'apple-watch'
-  if (mode === 'return-to-sport') {
-    return ['fork', 'injury-select', 'injury-date', 'wearable', ...(withApple ? ['apple-import'] : []), 'rts-welcome']
-  }
-  return ['fork', 'pathway', 'goals', 'wearable', ...(withApple ? ['apple-import'] : []), 'baseline']
+  if (mode === 'return-to-sport') return ['fork', 'injury-select', 'injury-date', 'rts-welcome']
+  return ['fork', 'pathway', 'goals', 'baseline']
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -87,9 +74,8 @@ export default function Onboarding() {
   const navigate = useNavigate()
 
   // Shared state
-  const [stepIndex,  setStepIndex]  = useState(0)
-  const [mode,       setMode]       = useState(null)   // 'return-to-sport' | 'prevention'
-  const [wearable,   setWearable]   = useState(null)
+  const [stepIndex, setStepIndex] = useState(0)
+  const [mode,      setMode]      = useState(null)   // 'return-to-sport' | 'prevention'
 
   // Return-to-sport state
   const [injuryId,       setInjuryId]       = useState(null)
@@ -99,7 +85,7 @@ export default function Onboarding() {
   const [pathway, setPathway] = useState(null)
   const [goals,   setGoals]   = useState([])
 
-  const steps    = getSteps(mode, wearable)
+  const steps    = getSteps(mode)
   const step     = steps[stepIndex]
   const progress = ((stepIndex + 1) / steps.length) * 100
 
@@ -117,7 +103,7 @@ export default function Onboarding() {
   }
 
   function finishPrevention() {
-    localStorage.setItem('kineo_profile', JSON.stringify({ pathway, goals, wearable }))
+    localStorage.setItem('kineo_profile', JSON.stringify({ pathway, goals }))
     setAthleteMode({ mode: 'prevention', injuryId: null, injuryOnsetDate: null, injuryName: null })
     localStorage.setItem('kineo_setup_done', 'true')
     navigate('/dashboard')
@@ -125,7 +111,7 @@ export default function Onboarding() {
 
   function finishRts() {
     const injuryName = injuryId === 'unclassified' ? "I'm not sure" : (INJURY_META[injuryId]?.name ?? null)
-    localStorage.setItem('kineo_profile', JSON.stringify({ pathway: null, goals: ['return'], wearable }))
+    localStorage.setItem('kineo_profile', JSON.stringify({ pathway: null, goals: ['return'] }))
     setAthleteMode({ mode: 'return-to-sport', injuryId, injuryOnsetDate, injuryName })
     localStorage.setItem('kineo_setup_done', 'true')
     navigate('/recovery')
@@ -263,62 +249,6 @@ export default function Onboarding() {
           <button className="onboarding__continue" onClick={goNext}>
             Continue
           </button>
-        </div>
-      )}
-
-      {/* ── Wearable (both paths, reframed for RTS) ── */}
-      {step === 'wearable' && (
-        <div className="onboarding__step">
-          <h1 className="onboarding__title">
-            {mode === 'return-to-sport' ? 'Connect your Apple Watch data' : 'Do you use a wearable?'}
-          </h1>
-          <p className="onboarding__subtitle">
-            {mode === 'return-to-sport'
-              ? 'Kineo uses your HRV and sleep history to personalise your recovery protocol — not generic advice.'
-              : 'Connect your device for automatic tracking'}
-          </p>
-
-          <div className="onboarding__grid">
-            {WEARABLES.map((w) => (
-              <button
-                key={w.id}
-                className={`onboarding__card ${wearable === w.id ? 'selected' : ''}`}
-                onClick={() => setWearable(w.id)}
-              >
-                <span className="onboarding__card-emoji onboarding__card-emoji--lg">{w.emoji}</span>
-                <span className="onboarding__card-label">{w.label}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="onboarding__info-banner">
-            <span className="onboarding__info-icon">⌚</span>
-            <div>
-              <p className="onboarding__info-title">Wearables unlock automatic tracking</p>
-              <p className="onboarding__info-text">
-                {mode === 'return-to-sport'
-                  ? 'Apple Watch HRV and sleep data lets Kineo personalise your recovery timeline to your actual physiology.'
-                  : 'Connecting Apple Watch or Garmin lets Kineo read your HRV, resting heart rate, and sleep automatically — giving you more accurate recommendations without manual input.'}
-              </p>
-            </div>
-          </div>
-
-          <p className="onboarding__hint">
-            {mode === 'return-to-sport'
-              ? 'Kineo works without a wearable — you can still log check-ins manually'
-              : "Don't worry — Kineo works great without one"}
-          </p>
-
-          <button className="onboarding__continue" disabled={!wearable} onClick={goNext}>
-            Continue
-          </button>
-        </div>
-      )}
-
-      {/* ── Apple Health import (both paths, after wearable) ── */}
-      {step === 'apple-import' && (
-        <div className="onboarding__step">
-          <ImportHealthData inline onSkip={goNext} onComplete={goNext} />
         </div>
       )}
 

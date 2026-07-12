@@ -36,7 +36,7 @@ export const PROTOCOLS = {
       { day: '1–3', instruction: 'Pool running or cycling — zero impact loading.' },
       { day: '4–7', instruction: 'Easy 10–20 minute jog on soft surface if pain score is 2 or below.' },
       { day: '8–14', instruction: 'Gradual return to regular running, adding no more than 10% per week.' },
-      { day: '15+', instruction: 'Resume normal training with ongoing load monitoring.' },
+      { day: 'Week 4+', instruction: 'Resume normal training. Continue monitoring weekly mileage increases — stay within 10% per week. Maintain calf strengthening as ongoing injury prevention.', actions: [] },
     ],
     watchFor: [
       'Pain that gets worse as you run (not better after warm-up)',

@@ -402,16 +402,19 @@ export default function Recovery() {
               </>
             )}
 
-            {protocol?.immediateActions?.length > 0 && (
-              <ul className="recovery__checklist">
-                {protocol.immediateActions.slice(0, 2).map((action, i) => (
-                  <li key={i} className="recovery__checklist-item">
-                    <span className="recovery__checklist-box" aria-hidden="true">☐</span>
-                    <span className="recovery__checklist-text">{action}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            {(() => {
+              const checklistItems = protocolStep?.actions ?? protocol?.immediateActions
+              return checklistItems?.length > 0 ? (
+                <ul className="recovery__checklist">
+                  {checklistItems.slice(0, 2).map((action, i) => (
+                    <li key={i} className="recovery__checklist-item">
+                      <span className="recovery__checklist-box" aria-hidden="true">☐</span>
+                      <span className="recovery__checklist-text">{action}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null
+            })()}
 
             {/* Yesterday's protocol summary */}
             {yesterdayProtocol?.protocol_session_done === true && (() => {
@@ -455,19 +458,43 @@ export default function Recovery() {
         {loading ? (
           <Skeleton height={200} />
         ) : !hasWearableSignal ? (
-          <div className="recovery__signals-empty">
-            <p className="recovery__signals-empty-text">
-              Connect Apple Watch data to see your recovery signals
-            </p>
-            <Link to="/import-health" className="recovery__empty-link">
-              Import Apple Health data →
-            </Link>
-          </div>
+          (() => {
+            if (!hasPainData) {
+              return (
+                <div className="recovery__signals-empty">
+                  <p className="recovery__signals-empty-text">
+                    Keep logging check-ins — your pain trend will appear here after 3 days.
+                  </p>
+                </div>
+              )
+            }
+            const last7   = painLogs.slice(0, 7)
+            const avgPain = Math.round((last7.reduce((s, r) => s + r.pain_score, 0) / last7.length) * 10) / 10
+            const trendText = trend === 'improving'
+              ? 'Your pain is trending down — protocol is working'
+              : trend === 'worsening'
+              ? "Pain is trending up — consider reducing today's load"
+              : 'Pain is holding steady — keep following the protocol'
+            return (
+              <div className="recovery__card">
+                <div className="recovery__pain-summary">
+                  <div>
+                    <p className="recovery__pain-avg-label">AVG PAIN (7 DAYS)</p>
+                    <p className="recovery__pain-avg-value">{avgPain}<span className="recovery__pain-avg-denom">/10</span></p>
+                  </div>
+                  <span className={`recovery__pain-trend-badge recovery__pain-trend-badge--${trend}`}>
+                    {trend === 'improving' ? '↓ Improving' : trend === 'worsening' ? '↑ Worsening' : '→ Stable'}
+                  </span>
+                </div>
+                <p className="recovery__pain-interp">{trendText}</p>
+              </div>
+            )
+          })()
         ) : (
           <div className="recovery__card">
             <div className="recovery__signals-pills">
               <div className="recovery__signal-pill">
-                <p className="recovery__signal-label">HRV TODAY</p>
+                <p className="recovery__signal-label">{isStaleWearable ? 'HRV' : 'HRV TODAY'}</p>
                 <p className="recovery__signal-value">
                   {wearableMetrics.hrv_ms != null ? `${wearableMetrics.hrv_ms}ms` : '—'}
                 </p>
