@@ -1,9 +1,23 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { supabase } from '../supabaseClient'
 import { calcReadiness } from '../utils/readiness'
 import { translateReasons } from '../utils/reasonTranslator'
 import { PROTOCOLS } from '../utils/injuryProtocols'
+import { getAthleteId } from '../utils/athleteId'
+import { getName } from '../utils/athleteMode'
 import './Recommendation.css'
+
+const ATHLETE_ID = getAthleteId()
+
+function countStreak(rows) {
+  let n = 0
+  for (const row of rows) {
+    if (row.decision === 'MAINTAIN' || row.decision === 'PUSH') n++
+    else break
+  }
+  return n
+}
 
 const DECISION_MAP = {
   PUSH:     { label: 'Full Training',      color: '#22C55E', emoji: '💪' },
@@ -55,11 +69,79 @@ function DataQuality({ dataSource }) {
 export default function Recommendation() {
   const navigate = useNavigate()
   const [data, setData] = useState(null)
+  const [feedbackSentence, setFeedbackSentence] = useState(null)
 
   useEffect(() => {
     const stored = localStorage.getItem('kineo_last_result')
     if (stored) setData(JSON.parse(stored))
   }, [])
+
+  useEffect(() => {
+    if (!data) return
+    async function computeFeedback() {
+      const { data: rows } = await supabase
+        .from('recommendation_outputs')
+        .select('decision, created_at')
+        .eq('athlete_id', ATHLETE_ID)
+        .order('created_at', { ascending: false })
+        .limit(7)
+
+      if (!rows) return
+
+      const name           = getName()
+      const todayDecision  = data.result?.decision
+      const morningFatigue = data.signals?.morningFatigue ?? 0
+      const painTrend      = data.signals?.painTrend
+      const painScore      = data.signals?.painScore ?? 0
+
+      // 1. STREAK
+      const streak = countStreak(rows)
+      if (streak >= 7) {
+        setFeedbackSentence("A full week of clean check-ins — you're in a good rhythm right now.")
+        return
+      }
+      if (streak >= 5) {
+        setFeedbackSentence("Five strong days — your body is responding well to the training load.")
+        return
+      }
+      if (streak >= 3) {
+        setFeedbackSentence(`Three clean days in a row — your recovery is trending well, ${name}.`)
+        return
+      }
+
+      // 2. IMPROVEMENT — today better than yesterday
+      const yesterdayDecision = rows[1]?.decision
+      if (
+        rows.length >= 2 &&
+        (todayDecision === 'MAINTAIN' || todayDecision === 'PUSH') &&
+        (yesterdayDecision === 'MODIFY' || yesterdayDecision === 'RECOVER')
+      ) {
+        setFeedbackSentence("Better than yesterday — whatever you did to recover is working.")
+        return
+      }
+
+      // 3. HIGH FATIGUE
+      if (morningFatigue >= 7) {
+        setFeedbackSentence("High fatigue noted today — the easier session is the right call.")
+        return
+      }
+
+      // 4. PAIN IMPROVING
+      if (painTrend === 'improving' && painScore > 0) {
+        setFeedbackSentence("Pain is trending in the right direction — keep load manageable and monitor daily.")
+        return
+      }
+
+      // 5. FIRST CHECK-IN
+      if (rows.length === 1) {
+        setFeedbackSentence(`Welcome to Kineo, ${name} — your first check-in is logged. Come back tomorrow to start building your trend.`)
+        return
+      }
+
+      // 6. DEFAULT — silence
+    }
+    computeFeedback()
+  }, [data])
 
   if (!data) {
     return (
@@ -107,6 +189,13 @@ export default function Recommendation() {
         <span className="recommendation__confidence">{result.confidence} CONFIDENCE</span>
         <DataQuality dataSource={dataSource} />
       </div>
+
+      {/* Contextual feedback sentence */}
+      {feedbackSentence && (
+        <p className="recommendation__watch-text" style={{ fontStyle: 'italic', textAlign: 'center' }}>
+          {feedbackSentence}
+        </p>
+      )}
 
       {/* Planned Workout */}
       <div className="recommendation__card">
