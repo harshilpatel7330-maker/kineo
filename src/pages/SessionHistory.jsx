@@ -280,7 +280,7 @@ export default function SessionHistory() {
         <p className="sessions__chart-subtitle">Load change week over week</p>
         <div className="sessions__chart-wrap">
           <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={chartData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 4, right: 4, left: 10, bottom: 0 }}>
               <XAxis
                 dataKey="label"
                 axisLine={false}
