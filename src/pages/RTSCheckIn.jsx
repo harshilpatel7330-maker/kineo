@@ -101,10 +101,10 @@ export default function RTSCheckIn() {
       const enteredHrv = showHrvNudge && !hrvSkipped && hrvMs !== '' ? parseFloat(hrvMs) : null
       const enteredRhr = showHrvNudge && !hrvSkipped && restingHrBpm !== '' ? parseFloat(restingHrBpm) : null
 
-      // 1. Insert into checkins — reuse fatigue for morning stiffness, soreness for pain score
+      // 1. Upsert into checkins — reuse fatigue for morning stiffness, soreness for pain score
       const { error: checkinError } = await supabase
         .from('checkins')
-        .insert({
+        .upsert({
           athlete_id:     ATHLETE_ID,
           date:           today,
           sleep_quality:  null,
@@ -116,8 +116,8 @@ export default function RTSCheckIn() {
           hrv_ms:         enteredHrv,
           sleep_hours:    null,
           source:         'rts_checkin',
-        })
-      if (checkinError) console.error('checkins insert:', checkinError)
+        }, { onConflict: 'athlete_id,date' })
+      if (checkinError) console.error('checkins upsert:', checkinError)
 
       // 2. Compute trend from prior pain history, then write today's pain_logs row
       const { data: priorLogs } = await supabase
@@ -141,17 +141,17 @@ export default function RTSCheckIn() {
         })
       if (painLogError) console.error('pain_logs insert:', painLogError)
 
-      // 3. Insert into rts_checkins (new table)
+      // 3. Upsert into rts_checkins — handles re-submission on same day
       const { error: rtsError } = await supabase
         .from('rts_checkins')
-        .insert({
+        .upsert({
           athlete_id:         ATHLETE_ID,
           date:               today,
           morning_stiffness:  morningStiffness,
           pain_score:         painScore,
           protocol_adherence: protocolAdherence,
-        })
-      if (rtsError) console.error('rts_checkins insert:', rtsError)
+        }, { onConflict: 'athlete_id,date' })
+      if (rtsError) console.error('rts_checkins upsert:', rtsError)
 
       // 4. Update recovery metrics and baseline
       await updateRecoveryMetrics(ATHLETE_ID, {
