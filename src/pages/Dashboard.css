@@ -322,3 +322,159 @@
   color: var(--accent);
   text-decoration: none;
 }
+
+/* ── Goal card ──────────────────────────────────────────────────────────────── */
+
+.dashboard__goal-card {
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--accent-bg);
+  border: 1.5px solid var(--accent-border);
+}
+
+.dashboard__goal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard__goal-meta {
+  flex: 1;
+}
+
+.dashboard__goal-name {
+  margin: 0 0 2px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-h);
+}
+
+.dashboard__goal-detail {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.dashboard__goal-edit {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--accent-border);
+  flex-shrink: 0;
+}
+
+.dashboard__goal-bar {
+  margin-top: 12px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.dashboard__goal-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+
+.dashboard__goal-dots {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.dashboard__goal-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-border);
+  background: var(--bg);
+}
+
+.dashboard__goal-dot--filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.dashboard__goal-prompt {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1.5px dashed var(--border);
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+/* ── Weekly summary card ─────────────────────────────────────────────────────── */
+
+.dashboard__weekly-card {
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.dashboard__weekly-header {
+  margin-bottom: 12px;
+}
+
+.dashboard__weekly-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.dashboard__weekly-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.dashboard__weekly-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard__weekly-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-h);
+  line-height: 1;
+}
+
+.dashboard__weekly-stat-value--up   { color: #22C55E; }
+.dashboard__weekly-stat-value--down { color: var(--accent); }
+.dashboard__weekly-stat-value--warn { color: #F59E0B; }
+
+.dashboard__weekly-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dashboard__weekly-summary {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text);
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}

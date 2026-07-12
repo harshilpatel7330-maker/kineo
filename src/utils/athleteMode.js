@@ -1,4 +1,7 @@
-const KEY = 'kineo_athlete_mode'
+const KEY      = 'kineo_athlete_mode'
+const GOAL_KEY = 'kineo_athlete_goal'
+
+const EMPTY_GOAL = { goalType: null, goalName: null, goalDate: null, goalWeeklyVolume: null }
 
 export function getAthleteMode() {
   try {
@@ -20,4 +23,22 @@ export function isReturnToSport() {
 
 export function isPreventionMode() {
   return getAthleteMode().mode !== 'return-to-sport'
+}
+
+export function getAthleteGoal() {
+  try {
+    const raw = localStorage.getItem(GOAL_KEY)
+    if (!raw) return { ...EMPTY_GOAL }
+    return { ...EMPTY_GOAL, ...JSON.parse(raw) }
+  } catch {
+    return { ...EMPTY_GOAL }
+  }
+}
+
+export function setAthleteGoal({ goalType = null, goalName = null, goalDate = null, goalWeeklyVolume = null } = {}) {
+  localStorage.setItem(GOAL_KEY, JSON.stringify({ goalType, goalName, goalDate, goalWeeklyVolume }))
+}
+
+export function hasGoal() {
+  return getAthleteGoal().goalType != null
 }

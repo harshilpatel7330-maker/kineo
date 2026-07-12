@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PROTOCOLS } from '../utils/injuryProtocols'
-import { setAthleteMode } from '../utils/athleteMode'
+import { setAthleteMode, setAthleteGoal } from '../utils/athleteMode'
+import GoalSetup from '../components/GoalSetup'
 import './Onboarding.css'
 
 // ── Injury selection data ────────────────────────────────────────────────────
@@ -44,7 +45,7 @@ const GOALS = [
 function getSteps(mode) {
   if (!mode) return ['fork']
   if (mode === 'return-to-sport') return ['fork', 'injury-select', 'injury-date', 'rts-welcome']
-  return ['fork', 'pathway', 'goals', 'baseline']
+  return ['fork', 'pathway', 'goals', 'goal', 'baseline']
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -307,6 +308,16 @@ export default function Onboarding() {
           <button className="onboarding__continue" disabled={goals.length === 0} onClick={goNext}>
             Continue
           </button>
+        </div>
+      )}
+
+      {/* ── Prevention: goal setup ── */}
+      {step === 'goal' && (
+        <div className="onboarding__step">
+          <GoalSetup
+            onSave={(data) => { setAthleteGoal(data); goNext() }}
+            onSkip={goNext}
+          />
         </div>
       )}
 

@@ -1060,6 +1060,31 @@ const ptGRAD7 = {
   result: GRAD7_result,
 }
 
+// ptGC1: MAINTAIN (case 3) with goalContext → action includes goalName
+const GC1_signals = {
+  hasBaseline: true, hasLoggedSessions: true,
+  painScore: 0, acwr: null, mileageChangePct: 5,
+  hrvVsBaselinePct: -3, rhrVsBaselineBpm: 2, sleepNightsBelowSix: 0,
+}
+const GC1_goal = { goalType: 'race', goalName: 'Half Marathon', goalDate: '2026-10-01', goalWeeklyVolume: 30 }
+const GC1_result = evaluate(GC1_signals, GC1_goal)
+const ptGC1 = {
+  id:    'goal-context-maintain',
+  label: 'MAINTAIN (case 3) + goal context → action mentions goalName',
+  pass:  GC1_result.decision === 'MAINTAIN' && GC1_result.action.includes('Half Marathon'),
+  result: GC1_result,
+}
+
+// ptGC2: MODIFY + goalContext → goal name absent from action (MODIFY action is untouched)
+const GC2_signals = { ...GC1_signals, painScore: 4 }
+const GC2_result = evaluate(GC2_signals, GC1_goal)
+const ptGC2 = {
+  id:    'goal-context-modify',
+  label: 'MODIFY + goal context → goal name absent from action (goal context does not override MODIFY)',
+  pass:  GC2_result.decision === 'MODIFY' && !GC2_result.action.includes('Half Marathon'),
+  result: GC2_result,
+}
+
 const results = [
   ...runScenarios(scenarios),
   baselineIsolationTest,
@@ -1091,5 +1116,6 @@ const results = [
   ptRR1, ptRR2, ptRR3, ptRR4,
   ptGRAD1, ptGRAD2, ptGRAD3, ptGRAD4,
   ptGRAD5, ptGRAD6, ptGRAD7,
+  ptGC1, ptGC2,
 ]
 console.log(JSON.stringify(results, null, 2))

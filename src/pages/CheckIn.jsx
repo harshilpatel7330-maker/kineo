@@ -174,7 +174,10 @@ export default function CheckIn() {
         sleepHours: sleepHours ? parseFloat(sleepHours) : null,
       })
 
-      const result = evaluate(signals)
+      const goalContext = signals.goalType
+        ? { goalType: signals.goalType, goalName: signals.goalName, goalDate: signals.goalDate, goalWeeklyVolume: signals.goalWeeklyVolume }
+        : null
+      const result = evaluate(signals, goalContext)
 
       if (cumulativeLoad.hasPattern) {
         result.warnings = result.warnings ?? []

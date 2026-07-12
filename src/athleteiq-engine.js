@@ -540,7 +540,15 @@ const RULES = [
 
 // ─── Core evaluator ───────────────────────────────────────────────────────────
 
-export function evaluate(signals) {
+function goalAwarePushAction(baseAction, goalContext) {
+  if (!goalContext?.goalName) return baseAction
+  const suffix = goalContext.goalType === 'race'
+    ? `This session builds your ${goalContext.goalName} preparation.`
+    : `Keep building toward ${goalContext.goalName}.`
+  return `${baseAction} ${suffix}`
+}
+
+export function evaluate(signals, goalContext = null) {
 
   const warnings = [];
   const firedRules = [];
@@ -592,7 +600,9 @@ export function evaluate(signals) {
       confidence: CONFIDENCE.MEDIUM,
       rulesFired: [],
       reasons:    ['No flags triggered — proceed with training plan as written'],
-      action:     'Execute the training plan as written. No modifications required.',
+      action:     goalContext?.goalName
+        ? `All signals clear. Execute your training plan as written and stay on track toward ${goalContext.goalName}.`
+        : 'Execute the training plan as written. No modifications required.',
       watchFor:   'Continue logging all signals daily.',
       warnings,
     };
@@ -638,7 +648,9 @@ export function evaluate(signals) {
     rulesFired: sortedRules.map(({ id, priority, name, reason, decision, injury }) =>
                   ({ id, priority, name, reason, decision, injury: injury ?? null })),
     reasons:    sortedRules.map(r => r.reason),
-    action:     drivingRule.action,
+    action:     finalDecision === DECISIONS.PUSH
+                  ? goalAwarePushAction(drivingRule.action, goalContext)
+                  : drivingRule.action,
     watchFor:   drivingRule.watchFor,
     warnings,
   };
@@ -648,7 +660,7 @@ export function evaluate(signals) {
 
 export function runScenarios(scenarios) {
   return scenarios.map(scenario => {
-    const result = evaluate(scenario.signals);
+    const result = evaluate(scenario.signals, scenario.goalContext ?? null);
     const pass = result.decision === scenario.expectedDecision;
     return {
       id:       scenario.id,

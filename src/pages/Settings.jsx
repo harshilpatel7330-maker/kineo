@@ -4,7 +4,8 @@ import { supabase } from '../supabaseClient'
 import { backfillRecoveryMetrics } from '../utils/baselineCalculator'
 import { getAthleteId } from '../utils/athleteId'
 import { PROTOCOLS } from '../utils/injuryProtocols'
-import { getAthleteMode, setAthleteMode } from '../utils/athleteMode'
+import { getAthleteMode, setAthleteMode, getAthleteGoal, setAthleteGoal } from '../utils/athleteMode'
+import GoalSetup from '../components/GoalSetup'
 import './Onboarding.css'
 import './Settings.css'
 
@@ -44,7 +45,8 @@ export default function Settings() {
   const current     = getAthleteMode()
   const isRts       = current.mode === 'return-to-sport'
 
-  const [subStep,         setSubStep]         = useState('main')  // main | injury-select | injury-date
+  const [subStep,         setSubStep]         = useState('main')  // main | injury-select | injury-date | goal
+  const [currentGoal,     setCurrentGoal]     = useState(() => getAthleteGoal())
   const [injuryId,        setInjuryId]        = useState(current.injuryId ?? null)
   const [injuryOnsetDate, setInjuryOnsetDate] = useState(current.injuryOnsetDate ?? todayISO())
   const [hasBaseline,     setHasBaseline]     = useState(false)
@@ -103,6 +105,39 @@ export default function Settings() {
               Switch to Recovery Mode
             </button>
           )}
+        </div>
+      )}
+
+      {subStep === 'main' && !isRts && (
+        <div className="settings__section">
+          <p className="settings__section-label">Training Goal</p>
+          {currentGoal.goalType ? (
+            <>
+              <p className="settings__sub-text">Your goal: <strong>{currentGoal.goalName}</strong></p>
+              <button className="settings__action-btn" onClick={() => setSubStep('goal')}>
+                Edit goal
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="settings__sub-text">
+                Set a training goal to get more personalised recommendations
+              </p>
+              <button className="settings__action-btn" onClick={() => setSubStep('goal')}>
+                Set Goal
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {subStep === 'goal' && (
+        <div className="settings__section">
+          <GoalSetup
+            initialValues={currentGoal}
+            onSave={(data) => { setAthleteGoal(data); setCurrentGoal(data); setSubStep('main') }}
+            onSkip={() => setSubStep('main')}
+          />
         </div>
       )}
 

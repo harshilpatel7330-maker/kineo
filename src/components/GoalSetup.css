@@ -1,0 +1,178 @@
+.goal-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.goal-setup__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-h);
+}
+
+.goal-setup__sub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.goal-setup__options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.goal-setup__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.goal-setup__option.selected {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.goal-setup__option-emoji {
+  font-size: 22px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.goal-setup__option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.goal-setup__option-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.goal-setup__option-sub {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.goal-setup__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.goal-setup__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.goal-setup__optional {
+  font-size: 11px;
+  font-weight: 400;
+  color: #888;
+  margin-left: 4px;
+}
+
+.goal-setup__input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text-h);
+  font-family: inherit;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.goal-setup__input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.goal-setup__days-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.goal-setup__day-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-h);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.goal-setup__day-btn.selected {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.goal-setup__days-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.goal-setup__save {
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.goal-setup__save:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.goal-setup__skip {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text);
+  opacity: 0.6;
+  cursor: pointer;
+  text-align: center;
+}
+
+.goal-setup__back {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+  align-self: flex-start;
+}
